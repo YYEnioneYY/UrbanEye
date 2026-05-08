@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/Media-MediaMTX-222222?style=for-the-badge" />
 </p>
 
-**Open Camera Map** — это веб-платформа, где пользователь открывает красивую интерактивную карту, выбирает точку с IP-камерой и смотрит live-видеопоток прямо в браузере.
+**UrbanEye** — это веб-платформа, где пользователь открывает красивую интерактивную карту, выбирает точку с IP-камерой и смотрит live-видеопоток прямо в браузере.
 
 Проект подходит для городских трансляций, онлайн-экскурсий, туристических маршрутов, наблюдения за достопримечательностями и других публичных сценариев.
 
@@ -56,34 +56,6 @@ React Map UI
 
 ```text
 Карта → Клик по камере → Live-видео в браузере
-```
-
----
-
-## 🏗️ Архитектура
-
-```text
-                 ┌──────────────────┐
-                 │     Frontend     │
-                 │ React / Next.js  │
-                 └────────┬─────────┘
-                          │
-                 ┌────────▼─────────┐
-                 │   API Service    │
-                 │ FastAPI / BFF    │
-                 └────────┬─────────┘
-                          │
-       ┌──────────────────┼──────────────────┐
-       │                  │                  │
-┌──────▼──────┐   ┌───────▼───────┐   ┌──────▼──────┐
-│ PostgreSQL  │   │     Redis     │   │  MediaMTX   │
-│  PostGIS    │   │ Events/Cache  │   │ RTSP→HLS/RTC│
-└─────────────┘   └───────────────┘   └──────┬──────┘
-                                             │
-                                      ┌──────▼──────┐
-                                      │ IP Cameras  │
-                                      │ RTSP/ONVIF  │
-                                      └─────────────┘
 ```
 
 ---
@@ -207,134 +179,9 @@ React Map UI
 
 ---
 
-## 🚀 Быстрый старт
-
-```bash
-git clone https://github.com/your-org/open-camera-map.git
-cd open-camera-map
-cp .env.example .env
-docker compose up --build
-```
-
-После запуска:
-
-```text
-Frontend:      http://localhost:3000
-Backend API:   http://localhost:8000
-MediaMTX:      http://localhost:8888
-Grafana:       http://localhost:3001
-```
-
----
-
-## 📁 Пример структуры проекта
-
-```text
-open-camera-map/
-├── frontend/
-│   ├── src/
-│   └── package.json
-├── backend/
-│   ├── app/
-│   │   ├── auth/
-│   │   ├── cameras/
-│   │   ├── streams/
-│   │   ├── admin/
-│   │   └── main.py
-│   ├── alembic/
-│   └── pyproject.toml
-├── worker/
-│   └── probe/
-├── infra/
-│   ├── nginx/
-│   ├── mediamtx/
-│   ├── prometheus/
-│   └── grafana/
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
-
----
-
-## 🧭 Roadmap
-
-### Stage 1 — MVP
-
-- [ ] Поднять Docker Compose
-- [ ] Настроить PostgreSQL + PostGIS
-- [ ] Реализовать Camera CRUD
-- [ ] Реализовать bbox-запросы
-- [ ] Интегрировать MediaMTX
-- [ ] Сделать Stream Service
-- [ ] Подключить карту на frontend
-- [ ] Запустить HLS/WebRTC-плеер
-
-### Stage 2 — Production-ready
-
-- [ ] Добавить роли пользователей
-- [ ] Добавить мониторинг камер
-- [ ] Добавить preview/snapshot worker
-- [ ] Добавить WebSocket-статусы
-- [ ] Добавить Prometheus + Grafana
-- [ ] Добавить audit log
-
-### Stage 3 — Scale
-
-- [ ] Вынести сервисы отдельно
-- [ ] Добавить несколько media nodes
-- [ ] Добавить CDN для HLS
-- [ ] Добавить онлайн-экскурсии
-- [ ] Добавить аналитику просмотров
-- [ ] Добавить уведомления администраторам
-
----
-
-## 🧑‍💻 Для backend-инженера
-
-Начинать лучше не с микросервисов, а с надежного модульного backend.
-
-Первый приоритет:
-
-```text
-Camera Service + Stream Service + Media Gateway
-```
-
-Минимальный порядок разработки:
-
-1. база данных камер;
-2. модели и миграции;
-3. bbox-запросы через PostGIS;
-4. public API камер;
-5. admin CRUD камер;
-6. хранение RTSP/ONVIF-доступов;
-7. интеграция с MediaMTX;
-8. endpoint `POST /api/cameras/{id}/play`;
-9. генерация временного playback URL;
-10. проверка камеры через worker.
-
----
-
-## 🧪 Критерий успеха
-
-Проект считается рабочим, когда пользователь может:
-
-```text
-открыть карту → выбрать камеру → нажать "Смотреть" → увидеть live-видео
-```
-
-А frontend при этом не получает:
-
-- RTSP URL;
-- логин камеры;
-- пароль камеры;
-- внутренний адрес камеры.
-
----
-
 <div align="center">
 
-## Open Camera Map
+## UrbanEye
 
 **Красивые карты. Живые города. Безопасные видеопотоки.**
 
