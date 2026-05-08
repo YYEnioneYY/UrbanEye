@@ -1,8 +1,10 @@
 # Task 001 — Camera Service Core
 
-> **Цель:** реализовать базовый `Camera Service`, который хранит камеры, категории, статусы, координаты, умеет отдавать камеры по области карты через `bbox`, а также искать камеры, которые реально покрывают выбранную пользователем область на карте.
+> **Цель:** реализовать базовый `Camera Service`, который хранит камеры, категории, статусы, координаты, stream-конфигурацию и зашифрованные credentials камер, умеет отдавать камеры по области карты через `bbox`, а также искать камеры, которые реально покрывают выбранную пользователем область на карте.
 >
 > При клике пользователя на место на карте сервис должен возвращать не просто камеры, направленные в сторону этой точки, а камеры, которые физически достают до выбранной области вокруг клика. По умолчанию радиус такой области считается `100` метров.
+>
+> В рамках этой задачи Camera Service также должен заложить безопасную модель хранения RTSP/ONVIF-доступов, чтобы администратор мог добавлять новые IP-камеры, а Stream Service мог получать технические данные для запуска просмотра через внутренний API.
 
 ---
 
@@ -15,7 +17,7 @@
 | **Тип задачи** | Backend / Core Service |
 | **Приоритет** | High |
 | **Основной стек** | Python, FastAPI, PostgreSQL, PostGIS |
-| **Не входит в задачу** | Видеопотоки, RTSP, WebRTC, HLS, MediaMTX, авторизация |
+| **Не входит в задачу** | Видеопотоки, RTSP-подключение к камерам, WebRTC, HLS, MediaMTX, авторизация |
 
 ---
 
@@ -31,21 +33,25 @@
 - координаты камер;
 - статусы камер;
 - категории камер;
+- stream-конфигурацию камер;
+- зашифрованное хранение RTSP/ONVIF credentials;
 - получение камер по области карты через `bbox`;
 - получение камер, которые реально покрывают выбранную пользователем область на карте;
+- выдачу stream-конфигурации только внутренним сервисам;
 - подготовку архитектуры для будущих расширений:
   - маршруты;
   - онлайн-экскурсии;
   - зоны видимости;
   - preview-изображения;
   - права доступа;
-  - stream-конфигурация;
-  - RTSP/ONVIF credentials.
+  - ротация credentials;
+  - точные зоны видимости.
 
 ### Camera Service не отвечает за
 
 - воспроизведение видео;
-- RTSP-подключение;
+- RTSP-подключение к камерам;
+- преобразование RTSP в браузерный формат;
 - WebRTC;
 - HLS;
 - MediaMTX;
@@ -53,7 +59,7 @@
 - авторизацию пользователей;
 - frontend-админку.
 
-> **Важно:** Camera Service только хранит информацию о камерах и предоставляет данные другим сервисам. Он не должен стримить видео.
+> **Важно:** Camera Service только хранит информацию о камерах, stream-конфигурацию и зашифрованные credentials. Он предоставляет безопасные публичные данные frontend и закрытую техническую конфигурацию внутренним сервисам. Он не должен стримить видео и не должен сам подключаться к RTSP-потоку в пользовательском сценарии просмотра.
 
 ---
 
@@ -352,6 +358,89 @@ longitude, latitude
 
 ---
 
+
+## 5.5 CameraStreamConfig
+
+Техническая конфигурация подключения к IP-камере.
+
+Эта сущность нужна, чтобы Stream Service, Probe Worker и Snapshot Service могли понять, как подключаться к камере. При этом frontend не должен получать эти данные.
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `id` | UUID | уникальный идентификатор |
+| `camera_id` | UUID | ссылка на камеру |
+| `protocol` | string | базовый протокол камеры, например `rtsp` |
+| `host` | string | host или IP камеры |
+| `port` | integer | порт, по умолчанию `554` для RTSP |
+| `path` | text / null | путь RTSP-потока |
+| `rtsp_transport` | string / null | транспорт RTSP, например `tcp` или `udp` |
+| `main_stream_path` | text / null | путь основного потока, если нужно хранить отдельно |
+| `sub_stream_path` | text / null | путь дополнительного низкокачественного потока |
+| `onvif_enabled` | boolean | включена ли ONVIF-интеграция |
+| `onvif_host` | string / null | ONVIF host, если отличается от RTSP host |
+| `onvif_port` | integer / null | ONVIF port |
+| `created_at` | datetime | дата создания |
+| `updated_at` | datetime | дата обновления |
+
+### Важно
+
+Не хранить полный RTSP URL вместе с логином и паролем в одном поле.
+
+Плохо:
+
+```text
+rtsp://admin:password@192.168.1.25:554/Streaming/Channels/101
+```
+
+Хорошо:
+
+```text
+host = 192.168.1.25
+port = 554
+path = /Streaming/Channels/101
+username_encrypted = ...
+password_encrypted = ...
+```
+
+Полный RTSP URL должен собираться только внутри внутреннего backend-кода, когда Stream Service или adapter для Media Gateway запускает поток.
+
+---
+
+## 5.6 CameraCredentials
+
+Секретные данные для подключения к IP-камере.
+
+Эта сущность должна храниться отдельно от публичных данных камеры и отдельно от stream-конфигурации.
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `id` | UUID | уникальный идентификатор |
+| `camera_id` | UUID | ссылка на камеру |
+| `username_encrypted` | text / null | зашифрованный логин RTSP |
+| `password_encrypted` | text / null | зашифрованный пароль RTSP |
+| `onvif_username_encrypted` | text / null | зашифрованный логин ONVIF |
+| `onvif_password_encrypted` | text / null | зашифрованный пароль ONVIF |
+| `encryption_key_id` | string / null | идентификатор ключа шифрования |
+| `created_at` | datetime | дата создания |
+| `updated_at` | datetime | дата обновления |
+| `rotated_at` | datetime / null | дата последней ротации credentials |
+
+### Важно про пароли камер
+
+Пароли камер нельзя хранить в открытом виде.
+
+Пароли камер также нельзя хешировать как пользовательские пароли, потому что backend должен иметь возможность расшифровать пароль и подключиться к камере.
+
+Правило:
+
+```text
+user password    → hash
+camera password  → encrypt
+```
+
+То есть пароль пользователя проверяется через hash, а пароль камеры хранится через обратимое шифрование, потому что он нужен Stream Service для подключения к IP-камере.
+
+---
 ## 6. База данных
 
 ## 6.0 PostgreSQL и PostGIS
@@ -383,6 +472,8 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 |---|---|
 | `camera_categories` | категории камер |
 | `camera_status_history` | история изменения статусов камер |
+| `camera_stream_configs` | техническая конфигурация подключения к камерам |
+| `camera_credentials` | зашифрованные RTSP/ONVIF credentials |
 
 ### PostgreSQL-таблицы с PostGIS-полями
 
@@ -399,6 +490,8 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 ```text
 cameras
 ```
+
+Таблицы `camera_stream_configs` и `camera_credentials` являются обычными PostgreSQL-таблицами без spatial-полей.
 
 Обязательное spatial-поле:
 
@@ -540,6 +633,143 @@ ON camera_status_history (created_at);
 
 ---
 
+
+## 6.4 Таблица `camera_stream_configs`
+
+```sql
+CREATE TABLE camera_stream_configs (
+    id UUID PRIMARY KEY,
+
+    camera_id UUID NOT NULL REFERENCES cameras(id),
+
+    protocol VARCHAR(32) NOT NULL DEFAULT 'rtsp',
+
+    host VARCHAR(255) NOT NULL,
+    port INTEGER NOT NULL DEFAULT 554,
+    path TEXT,
+
+    rtsp_transport VARCHAR(32) DEFAULT 'tcp',
+
+    main_stream_path TEXT,
+    sub_stream_path TEXT,
+
+    onvif_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    onvif_host VARCHAR(255),
+    onvif_port INTEGER,
+
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+
+    CONSTRAINT uq_camera_stream_configs_camera_id
+        UNIQUE (camera_id),
+
+    CONSTRAINT chk_camera_stream_configs_port
+        CHECK (port > 0 AND port <= 65535),
+
+    CONSTRAINT chk_camera_stream_configs_onvif_port
+        CHECK (onvif_port IS NULL OR (onvif_port > 0 AND onvif_port <= 65535))
+);
+```
+
+### Индексы
+
+```sql
+CREATE INDEX idx_camera_stream_configs_camera_id
+ON camera_stream_configs (camera_id);
+
+CREATE INDEX idx_camera_stream_configs_protocol
+ON camera_stream_configs (protocol);
+```
+
+### Важно
+
+В этой таблице не должно быть открытого пароля камеры.
+
+Не хранить полный URL вида:
+
+```text
+rtsp://user:password@host:554/path
+```
+
+Хранить только технические части подключения:
+
+```text
+protocol
+host
+port
+path
+rtsp_transport
+```
+
+---
+
+## 6.5 Таблица `camera_credentials`
+
+```sql
+CREATE TABLE camera_credentials (
+    id UUID PRIMARY KEY,
+
+    camera_id UUID NOT NULL REFERENCES cameras(id),
+
+    username_encrypted TEXT,
+    password_encrypted TEXT,
+
+    onvif_username_encrypted TEXT,
+    onvif_password_encrypted TEXT,
+
+    encryption_key_id VARCHAR(128),
+
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    rotated_at TIMESTAMP,
+
+    CONSTRAINT uq_camera_credentials_camera_id
+        UNIQUE (camera_id)
+);
+```
+
+### Индексы
+
+```sql
+CREATE INDEX idx_camera_credentials_camera_id
+ON camera_credentials (camera_id);
+```
+
+### Важно
+
+В таблице `camera_credentials` запрещено хранить credentials в открытом виде.
+
+Разрешено хранить только:
+
+```text
+username_encrypted
+password_encrypted
+onvif_username_encrypted
+onvif_password_encrypted
+```
+
+Для MVP можно использовать master key из переменной окружения.
+
+Для production желательно вынести секреты в отдельное хранилище:
+
+```text
+HashiCorp Vault
+AWS Secrets Manager
+Google Secret Manager
+Azure Key Vault
+Doppler
+1Password Secrets Automation
+```
+
+В таком варианте в PostgreSQL можно будет хранить не encrypted value, а ссылку на секрет:
+
+```text
+secret_ref = vault://cameras/{camera_id}/credentials
+```
+
+Но в рамках Task 001 достаточно реализовать encrypted-поля в PostgreSQL.
+
+---
 ## 7. API
 
 ## 7.1 Получить камеры по `bbox`
@@ -815,7 +1045,25 @@ admin
   "view_distance_meters": 500,
   "has_audio": false,
   "has_ptz": true,
-  "has_night_vision": false
+  "has_night_vision": false,
+  "stream_config": {
+    "protocol": "rtsp",
+    "host": "192.168.1.25",
+    "port": 554,
+    "path": "/Streaming/Channels/101",
+    "rtsp_transport": "tcp",
+    "main_stream_path": "/Streaming/Channels/101",
+    "sub_stream_path": "/Streaming/Channels/102",
+    "onvif_enabled": true,
+    "onvif_host": "192.168.1.25",
+    "onvif_port": 8899
+  },
+  "credentials": {
+    "username": "admin",
+    "password": "camera_password",
+    "onvif_username": "admin",
+    "onvif_password": "camera_password"
+  }
 }
 ```
 
@@ -828,6 +1076,18 @@ admin
   "status": "unknown"
 }
 ```
+
+### Важно
+
+В ответе на создание камеры нельзя возвращать credentials.
+
+Если в запросе переданы `credentials`, сервис должен:
+
+1. провалидировать структуру данных;
+2. зашифровать секретные поля;
+3. сохранить их в `camera_credentials`;
+4. не логировать пароль;
+5. не возвращать пароль в response.
 
 ---
 
@@ -933,7 +1193,150 @@ admin
 
 ---
 
-## 7.9 Healthcheck
+
+## 7.9 Обновить stream-конфигурацию камеры
+
+```http
+PATCH /api/admin/cameras/{camera_id}/stream-config
+```
+
+### Доступ
+
+```text
+admin
+```
+
+> В рамках Task 001 авторизация не реализуется. Endpoint можно подготовить как admin endpoint, но без полноценной проверки ролей.
+
+### Request
+
+```json
+{
+  "protocol": "rtsp",
+  "host": "192.168.1.25",
+  "port": 554,
+  "path": "/Streaming/Channels/101",
+  "rtsp_transport": "tcp",
+  "main_stream_path": "/Streaming/Channels/101",
+  "sub_stream_path": "/Streaming/Channels/102",
+  "onvif_enabled": true,
+  "onvif_host": "192.168.1.25",
+  "onvif_port": 8899
+}
+```
+
+### Response
+
+```json
+{
+  "camera_id": "camera_uuid",
+  "stream_config_updated": true
+}
+```
+
+---
+
+## 7.10 Обновить credentials камеры
+
+```http
+PATCH /api/admin/cameras/{camera_id}/credentials
+```
+
+### Доступ
+
+```text
+admin
+```
+
+### Request
+
+```json
+{
+  "username": "admin",
+  "password": "new_camera_password",
+  "onvif_username": "admin",
+  "onvif_password": "new_camera_password"
+}
+```
+
+### Response
+
+```json
+{
+  "camera_id": "camera_uuid",
+  "credentials_updated": true,
+  "rotated_at": "2026-05-08T12:00:00Z"
+}
+```
+
+### Важно
+
+Credentials нельзя вернуть обратно в response.
+
+Администратор может задать новый пароль, но после сохранения API может показывать только маску:
+
+```text
+password: ********
+```
+
+---
+
+## 7.11 Получить stream-конфигурацию для внутреннего сервиса
+
+```http
+GET /internal/cameras/{camera_id}/stream-config
+```
+
+### Доступ
+
+```text
+internal service only
+```
+
+Этот endpoint нужен для Stream Service, Probe Worker и Snapshot Service.
+
+Frontend не должен иметь доступ к этому endpoint.
+
+### Response
+
+```json
+{
+  "camera_id": "camera_uuid",
+  "protocol": "rtsp",
+  "host": "192.168.1.25",
+  "port": 554,
+  "path": "/Streaming/Channels/101",
+  "rtsp_transport": "tcp",
+  "main_stream_path": "/Streaming/Channels/101",
+  "sub_stream_path": "/Streaming/Channels/102",
+  "onvif_enabled": true,
+  "onvif_host": "192.168.1.25",
+  "onvif_port": 8899,
+  "credentials": {
+    "username": "admin",
+    "password": "decrypted_camera_password",
+    "onvif_username": "admin",
+    "onvif_password": "decrypted_onvif_password"
+  }
+}
+```
+
+### Важно
+
+Расшифрованные credentials можно возвращать только внутренним сервисам.
+
+Endpoint должен быть защищен как минимум одним из способов:
+
+- доступ только из внутренней сети;
+- internal API key;
+- service-to-service JWT;
+- mTLS в production.
+
+Ответ этого endpoint нельзя логировать целиком.
+
+---
+
+## 7.12 Healthcheck
 
 ```http
 GET /health
@@ -1229,6 +1632,11 @@ def calculate_camera_match_score(
 | `category_id` | должен существовать, если передан |
 | `camera_search_radius_meters` | больше `0`, рекомендуемый максимум `10000` |
 | `target_radius_meters` | больше `0`, default `100` |
+| `stream_config.host` | не пустой, host или IP камеры |
+| `stream_config.port` | от `1` до `65535` |
+| `stream_config.protocol` | на первом этапе `rtsp` |
+| `credentials.password` | не логировать, не возвращать, хранить только encrypted |
+| `credentials.username` | не возвращать публично, хранить только encrypted или masked |
 
 ---
 
@@ -1316,6 +1724,19 @@ camera-service/
       repository.py
       service.py
 
+    stream_configs/
+      models.py
+      schemas.py
+      repository.py
+      service.py
+
+    credentials/
+      models.py
+      schemas.py
+      repository.py
+      service.py
+      crypto.py
+
     common/
       pagination.py
       errors.py
@@ -1327,6 +1748,8 @@ camera-service/
     test_cameras_api.py
     test_camera_geo.py
     test_categories_api.py
+    test_stream_configs_api.py
+    test_camera_credentials_api.py
 
   Dockerfile
   pyproject.toml
@@ -1393,7 +1816,8 @@ camera-service/
 В рамках этой задачи не нужно реализовывать:
 
 - видеопотоки;
-- RTSP-подключение;
+- RTSP-подключение к камерам;
+- преобразование RTSP в браузерный формат;
 - WebRTC;
 - HLS;
 - MediaMTX;
@@ -1401,6 +1825,7 @@ camera-service/
 - роли пользователей;
 - права доступа;
 - Stream Service;
+- Media Gateway adapter;
 - Preview Service;
 - Probe Worker;
 - онлайн-экскурсии;
@@ -1470,8 +1895,22 @@ Camera Service Core
 - [ ] `is_point_inside_camera_view` возвращает `false` для точки вне сектора;
 - [ ] `calculate_camera_match_score` возвращает значение от `0` до `1`.
 
----
 
+### 17.6 Stream-конфигурация и credentials
+
+- [ ] можно создать камеру вместе со `stream_config`;
+- [ ] можно создать камеру вместе с `credentials`;
+- [ ] credentials сохраняются только в зашифрованном виде;
+- [ ] публичные API не возвращают credentials;
+- [ ] admin API не возвращает пароль камеры обратно после сохранения;
+- [ ] можно обновить `stream_config` камеры;
+- [ ] можно обновить credentials камеры;
+- [ ] при обновлении credentials обновляется `rotated_at`;
+- [ ] internal endpoint возвращает stream-конфигурацию для Stream Service;
+- [ ] internal endpoint не логирует расшифрованные credentials;
+- [ ] нельзя сохранить `stream_config.port` вне диапазона `1..65535`.
+
+---
 ## 18. API ошибки
 
 Стандартный формат ошибок:
@@ -1513,6 +1952,8 @@ CAMERA_SERVICE_NAME=camera-service
 CAMERA_DATABASE_URL=postgresql+asyncpg://camera:camera@postgres:5432/camera_db
 CAMERA_API_PORT=8001
 ENVIRONMENT=local
+CAMERA_CREDENTIALS_ENCRYPTION_KEY=change_me_local_fernet_or_aes_key
+INTERNAL_API_KEY=change_me_internal_key
 ```
 
 ### Пример блока `docker-compose.yml`
@@ -1574,11 +2015,15 @@ Healthcheck должен проверять:
 - [ ] Есть таблицы:
   - `cameras`;
   - `camera_categories`;
-  - `camera_status_history`.
+  - `camera_status_history`;
+  - `camera_stream_configs`;
+  - `camera_credentials`.
 - [ ] В документации явно описано, какие таблицы используют обычные PostgreSQL-поля, а какие используют PostGIS-поля.
 - [ ] В таблице `cameras` есть поле `location GEOGRAPHY(POINT, 4326)`.
 - [ ] На поле `location` создан GIST-индекс.
 - [ ] Можно создать камеру.
+- [ ] Можно создать камеру вместе со `stream_config`.
+- [ ] Можно создать камеру вместе с encrypted `credentials`.
 - [ ] При создании камеры корректно создается `location` из `longitude` и `latitude`.
 - [ ] Можно получить камеру по ID.
 - [ ] Можно обновить камеру.
@@ -1589,6 +2034,12 @@ Healthcheck должен проверять:
 - [ ] Можно фильтровать камеры по `category`.
 - [ ] Можно получить список категорий.
 - [ ] Можно создать категорию.
+- [ ] Можно обновить stream-конфигурацию камеры.
+- [ ] Можно обновить credentials камеры.
+- [ ] Credentials хранятся только в зашифрованном виде.
+- [ ] Публичные API не возвращают credentials.
+- [ ] Admin API не возвращает password камеры обратно после сохранения.
+- [ ] Internal endpoint `/internal/cameras/{camera_id}/stream-config` возвращает техническую конфигурацию только внутренним сервисам.
 - [ ] Можно найти камеры, которые смотрят в выбранную точку.
 - [ ] `looking-at` возвращает не все камеры, направленные в сторону точки, а только камеры, которые реально достают до выбранной зоны.
 - [ ] Для `looking-at` поддерживается параметр `target_radius_meters`.
@@ -1598,9 +2049,10 @@ Healthcheck должен проверять:
 - [ ] Гео-логика вынесена в отдельный модуль.
 - [ ] Основные сценарии покрыты тестами.
 - [ ] Сервис не занимается видеопотоками.
-- [ ] API не возвращает никаких RTSP/ONVIF-секретов.
+- [ ] Публичное API не возвращает никаких RTSP/ONVIF-секретов.
+- [ ] Расшифрованные RTSP/ONVIF credentials доступны только internal endpoint для доверенных сервисов.
+- [ ] Полный RTSP URL с логином и паролем не хранится в базе и не логируется.
 - [ ] Код написан так, чтобы позже можно было добавить:
-  - `stream_config`;
   - preview;
   - permissions;
   - routes.
@@ -1610,7 +2062,7 @@ Healthcheck должен проверять:
 ## 22. Главное правило задачи
 
 ```text
-Camera Service хранит данные о камерах.
+Camera Service хранит данные о камерах, stream-конфигурацию и encrypted credentials.
 Stream Service управляет запуском просмотра.
 Media Gateway работает с видео.
 Frontend получает только безопасные публичные данные.
@@ -1621,7 +2073,7 @@ Camera Service не должен превращаться в сервис, ко�
 Его ядро:
 
 ```text
-Камеры + Координаты + Категории + Статусы + Геопоиск
+Камеры + Координаты + Категории + Статусы + Геопоиск + Stream Config + Encrypted Credentials
 ```
 
 ---
@@ -1654,4 +2106,225 @@ Camera Service не должен превращаться в сервис, ко�
 1. distance_to_point_meters <= view_distance_meters
 2. angle_diff <= view_angle / 2
 3. centerline_offset_meters <= target_radius_meters
+```
+
+
+---
+
+## 24. Хранение RTSP/ONVIF credentials и связь со Stream Service
+
+В системе будет отдельный слой, который преобразует поток IP-камеры в формат, понятный браузеру.
+
+Ожидаемая схема:
+
+```text
+IP Camera / RTSP / ONVIF
+        ↓
+Media Gateway / Streaming Server
+        ↓
+WebRTC или HLS / LL-HLS
+        ↓
+Browser Player
+```
+
+Camera Service в этой схеме не конвертирует видео, но хранит данные, которые нужны для подключения к камере.
+
+### 24.1 Где хранить логин и пароль камеры
+
+Логин и пароль камеры нужно хранить в `Camera Service`, но только в зашифрованном виде.
+
+Рекомендуемое разделение:
+
+```text
+cameras
+  публичные и географические данные камеры
+
+camera_stream_configs
+  технические настройки подключения без паролей
+
+camera_credentials
+  encrypted RTSP/ONVIF credentials
+```
+
+Публичные данные:
+
+```text
+title
+description
+latitude
+longitude
+status
+category
+preview_url
+azimuth
+view_angle
+view_distance_meters
+```
+
+Технические данные:
+
+```text
+protocol
+host
+port
+path
+rtsp_transport
+onvif_host
+onvif_port
+```
+
+Секретные данные:
+
+```text
+username_encrypted
+password_encrypted
+onvif_username_encrypted
+onvif_password_encrypted
+```
+
+### 24.2 Почему нельзя хешировать пароль камеры
+
+Пароль пользователя можно хешировать, потому что его нужно только проверить.
+
+Пароль камеры нужно использовать для подключения к IP-камере, поэтому его нужно иметь возможность расшифровать.
+
+Правило:
+
+```text
+user password    → hash
+camera password  → encrypt
+```
+
+### 24.3 Как добавлять новую камеру
+
+Сценарий добавления камеры администратором:
+
+```text
+1. Админ открывает админку.
+2. Вводит название камеры, координаты, категорию и параметры обзора.
+3. Вводит RTSP/ONVIF host, port, path.
+4. Вводит login/password камеры.
+5. Camera Service валидирует данные.
+6. Camera Service сохраняет публичные данные в cameras.
+7. Camera Service сохраняет техническую конфигурацию в camera_stream_configs.
+8. Camera Service шифрует credentials и сохраняет их в camera_credentials.
+9. В response credentials не возвращаются.
+```
+
+### 24.4 Как Stream Service получает данные
+
+Когда пользователь нажимает “Смотреть”, поток должен запускаться не через Camera Service, а через Stream Service.
+
+Сценарий:
+
+```text
+Frontend
+  ↓
+POST /api/cameras/{camera_id}/play
+  ↓
+API Gateway
+  ↓
+Stream Service
+  ↓
+Camera Service internal API
+  ↓
+GET /internal/cameras/{camera_id}/stream-config
+  ↓
+Media Gateway
+  ↓
+WebRTC / HLS URL для браузера
+```
+
+Camera Service возвращает Stream Service технические данные подключения.
+
+Stream Service собирает рабочий RTSP URL внутри backend-кода и передает его в Media Gateway.
+
+Frontend получает только временную ссылку на браузерный поток:
+
+```json
+{
+  "camera_id": "camera_uuid",
+  "protocol": "webrtc",
+  "playback_url": "https://stream.example.com/cam_123/webrtc?token=temporary_token",
+  "expires_in": 300
+}
+```
+
+Frontend никогда не должен получить:
+
+```text
+rtsp://admin:password@192.168.1.25:554/Streaming/Channels/101
+```
+
+### 24.5 Кто может получить расшифрованные credentials
+
+Расшифрованные credentials могут получать только доверенные внутренние сервисы:
+
+```text
+Stream Service
+Probe Worker
+Snapshot Service
+```
+
+Не должны получать credentials:
+
+```text
+Frontend
+Analytics Service
+Notification Service
+Tour Service
+обычные пользователи
+админы через обычные API-ответы
+логи
+```
+
+Даже администратор после сохранения камеры не должен видеть пароль обратно.
+
+Допустимый формат отображения в админке:
+
+```text
+username: admin
+password: ********
+```
+
+### 24.6 Минимальные правила безопасности
+
+- Не хранить пароли камер в открытом виде.
+- Не хешировать пароли камер, потому что они нужны для подключения.
+- Шифровать credentials.
+- Не возвращать credentials через публичное API.
+- Не возвращать credentials через admin API после сохранения.
+- Не логировать password.
+- Не логировать полный RTSP URL с логином и паролем.
+- Не хранить полный RTSP URL вида `rtsp://user:password@host`.
+- Ограничить `/internal/*` endpoint'ы только внутренней сетью.
+- Добавить service-to-service auth.
+- При изменении credentials обновлять `rotated_at`.
+- При мягком удалении камеры запрещать выдачу credentials через internal endpoint.
+
+### 24.7 MVP и production-вариант
+
+Для MVP:
+
+```text
+PostgreSQL + encrypted fields
+CAMERA_CREDENTIALS_ENCRYPTION_KEY в env/secrets
+```
+
+Для production:
+
+```text
+HashiCorp Vault / Cloud Secret Manager
+PostgreSQL хранит только secret_ref
+ключи ротируются
+доступ к secret storage ограничен service account'ами
+```
+
+### 24.8 Главное правило credentials
+
+```text
+Camera Service хранит encrypted credentials.
+Stream Service использует credentials только для запуска потока.
+Media Gateway получает данные подключения от backend-слоя.
+Frontend получает только временный playback_url.
 ```
