@@ -1,6 +1,6 @@
 <div align="center">
 <p align="center">
-  <img src="./docs/assets/logo.png" alt="Logo" width="150">
+  <img src="./docs/assets/logo-dark.png" alt="Logo" width="300">
 </p>
 
 ### Интерактивная карта публичных IP-камер с live-видеопотоками в браузере
