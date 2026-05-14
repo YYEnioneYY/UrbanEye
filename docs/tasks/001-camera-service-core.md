@@ -13,7 +13,7 @@
 | Поле | Значение |
 |---|---|
 | **Статус** | Ready for Development |
-| **Ответственный сервис** | Camera Service |
+| **Ответственный за сервис** | Мургин А.Р. |
 | **Тип задачи** | Backend / Core Service |
 | **Приоритет** | High |
 | **Основной стек** | Python, FastAPI, PostgreSQL, PostGIS |
