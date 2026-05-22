@@ -1,0 +1,77 @@
+:root,
+html[data-theme='light'] {
+  /* Base */
+  --color-bg: #f6f8fb;
+  --color-bg-soft: #EEF4FF;
+  --color-surface: rgba(255, 255, 255, 0.88);
+  --color-surface-solid: #ffffff;
+
+  /* Text */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #9ca3af;
+
+  /* Brand */
+  --color-primary: #2563eb;
+  --color-primary-hover: #406ac6;
+  --color-primary-text: #0F172A;
+
+  /* Borders / shadows */
+  --color-border: #e2e8f0;
+  --color-border-strong: #e2e8f0;
+  --color-shadow: rgba(15, 19, 24, 0.12);
+
+  /* Buttons */
+  --button-primary-bg: var(--color-primary);
+  --button-primary-text: #0f1318;
+  --button-secondary-bg: #0f1318;
+  --button-secondary-text: #ffffff;
+
+  /* Navbar */
+  --navbar-bg: #ffffff;
+  --navbar-text: #0f172a;
+  --navbar-muted: #6b7280;
+
+  /* Map / panels */
+  --panel-bg: rgba(255, 255, 255, 0.95);
+  --panel-text: #0f1318;
+}
+
+html.dark,
+html[data-theme='dark'] {
+  /* Base */
+  --color-bg: #0f1318;
+  --color-bg-soft: #141a22;
+  --color-surface: rgba(20, 26, 34, 0.88);
+  --color-surface-solid: #141a22;
+
+  /* Text */
+  --color-text-primary: #f6f8fb;
+  --color-text-secondary: #c7ced8;
+  --color-text-muted: #7b8491;
+
+  /* Brand */
+  --color-primary: #ffd21e;
+  --color-primary-hover: #ffe05a;
+  --color-primary-text: #0f1318;
+
+  /* Borders / shadows */
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+  --color-shadow: rgba(0, 0, 0, 0.35);
+
+  /* Buttons */
+  --button-primary-bg: var(--color-primary);
+  --button-primary-text: #0f1318;
+  --button-secondary-bg: #ffffff;
+  --button-secondary-text: #0f1318;
+
+  /* Navbar */
+  --navbar-bg: rgba(20, 26, 34, 0.88);
+  --navbar-text: #ffffff;
+  --navbar-muted: #9ca3af;
+
+  /* Map / panels */
+  --panel-bg: rgba(20, 26, 34, 0.95);
+  --panel-text: #f6f8fb;
+}
