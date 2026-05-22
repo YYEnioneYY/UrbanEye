@@ -1,0 +1,9 @@
+services:
+  geo-service:
+    build:
+      context: ./geo-service
+    container_name: geo-service
+    env_file:
+      - ./geo-service/.env
+    ports:
+      - "8080:8080"
