@@ -37,7 +37,7 @@ export function CameraMap() {
       attributionControl: false,
     });
 
-    map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+    map.addControl(new maplibregl.NavigationControl(), 'bottom-left');
 
     const handleThemeChange = (event: Event) => {
       const themeEvent = event as CustomEvent<{

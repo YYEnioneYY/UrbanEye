@@ -39,7 +39,7 @@ export function NavBar() {
                 to={link.path}
                 className={({ isActive }) =>
                   [
-                    'relative flex h-full items-center whitespace-nowrap text-[14px] font-medium uppercase transition',
+                    'relative flex h-full items-center whitespace-nowrap text-[14px] font-inter font-medium uppercase transition',
                     'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[3px] after:rounded-t-full after:bg-[var(--color-primary)] after:transition-opacity',
                     isActive
                       ? 'text-[var(--color-primary)] after:opacity-100'
@@ -60,7 +60,7 @@ export function NavBar() {
 
           <Link
             to="/login"
-            className="hidden rounded-full px-5 py-2.5 text-sm font-bold text-[var(--button-primary-text)] border border-[var(--color-border)] transition hover:scale-[1.03] xl:flex hover:text-[var(--color-primary)]"
+            className="hidden rounded-full px-5 py-2.5 text-sm font-inter font-bold text-[var(--button-primary-text)] border border-[var(--color-border)] transition hover:scale-[1.03] xl:flex hover:text-[var(--color-primary)]"
           >
             Войти
           </Link>
