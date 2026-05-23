@@ -1,11 +1,12 @@
 import { Route, Routes } from 'react-router';
 
 import { HomePage } from '../../pages/home/ui/HomePage';
+import { AboutPage } from '../../pages/about/ui/AboutPage';
 import { MapPage } from '../../pages/map/ui/MapPage';
 import { LoginPage } from '../../pages/login/ui/LoginPage';
 import { RegisterPage } from '../../pages/register/ui/RegisterPage';
 import { ForgotPasswordPage } from '../../pages/forgot-password/ui/ForgotPasswordPage';
-import { FourZeroFourPage } from '../../pages/404/ui/404Page'
+import { NotFoundPage } from '../../pages/not-found/ui/NotFoundPage';
 
 import { MainLayout } from '../../widgets/layouts/main-layout/ui/MainLayout';
 import { MapLayout } from '../../widgets/layouts/map-layout/ui/MapLayout'
@@ -16,6 +17,9 @@ export function AppRouter() {
     <Routes>
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
+
+        
+        <Route path="/about" element={<AboutPage />} />
       </Route>
 
       <Route element={<MapLayout />}>
@@ -28,7 +32,7 @@ export function AppRouter() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Route>
 
-      <Route path="*" element={<FourZeroFourPage />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

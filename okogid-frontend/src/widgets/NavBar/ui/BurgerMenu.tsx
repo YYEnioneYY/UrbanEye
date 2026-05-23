@@ -103,7 +103,7 @@ export function BurgerMenu() {
 
           <Link
             to="/login"
-            className="mt-2 rounded-2xl border border-[var(--color-border)] px-4 py-3 text-center text-sm font-bold text-[var(--button-primary-text)] transition hover:scale-[1.01] hover:text-[var(--color-primary)]"
+            className="mt-2 rounded-2xl border border-[var(--color-border)] px-4 py-3 text-center text-sm font-bold text-[var(--button-enter-text)] transition hover:scale-[1.01] hover:text-[var(--color-primary)]"
           >
             Войти
           </Link>

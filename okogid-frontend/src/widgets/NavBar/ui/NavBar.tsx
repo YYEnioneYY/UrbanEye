@@ -60,7 +60,7 @@ export function NavBar() {
 
           <Link
             to="/login"
-            className="hidden rounded-full px-5 py-2.5 text-sm font-inter font-bold text-[var(--button-primary-text)] border border-[var(--color-border)] transition hover:scale-[1.03] xl:flex hover:text-[var(--color-primary)]"
+            className="hidden rounded-full px-5 py-2.5 text-sm font-inter font-bold text-[var(--button-enter-text)] border border-[var(--color-border)] transition hover:scale-[1.03] xl:flex hover:text-[var(--color-primary)]"
           >
             Войти
           </Link>

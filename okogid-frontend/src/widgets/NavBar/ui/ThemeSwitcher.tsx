@@ -19,7 +19,7 @@ export function ThemeSwitcher() {
             className={[
               'flex h-9 w-9 items-center justify-center rounded-full transition',
               isActive
-                ? 'bg-[var(--color-surface-solid)] text-[var(--color-primary-text)] shadow-sm'
+                ? 'bg-[var(--color-themeswitcher-active)] text-[var(--color-primary-text)] shadow-sm'
                 : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-solid)] hover:text-[var(--color-text-primary)]',
             ].join(' ')}
           >

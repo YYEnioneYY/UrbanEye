@@ -24,6 +24,7 @@ html[data-theme='light'] {
   --color-primary: #2563eb;
   --color-primary-hover: #406ac6;
   --color-primary-text: #0F172A;
+  --color-secondary-text: #ffffff;
 
   /* Borders / shadows */
   --color-border: #e2e8f0;
@@ -43,6 +44,8 @@ html[data-theme='light'] {
   --navbar-bg: #ffffff;
   --navbar-text: #0f172a;
   --navbar-muted: #6b7280;
+  --color-themeswitcher-active: #ffffff;
+  --button-enter-text: #0F172A;
 
   /* Map / panels */
   --panel-bg: rgba(255, 255, 255, 0.95);
@@ -67,7 +70,7 @@ html[data-theme='dark'] {
   --color-auth-input-text: #A8B3C2;
 
   /* Text */
-  --color-text-primary: #f6f8fb;
+  --color-text-primary: #F8FAFC;
   --color-text-secondary: #c7ced8;
   --color-text-muted: #7b8491;
 
@@ -75,6 +78,7 @@ html[data-theme='dark'] {
   --color-primary: #ffd21e;
   --color-primary-hover: #ffe05a;
   --color-primary-text: #0f1318;
+  --color-secondary-text: #0f1318;
 
   /* Borders / shadows */
   --color-border: rgba(255, 255, 255, 0.1);
@@ -94,6 +98,8 @@ html[data-theme='dark'] {
   --navbar-bg: rgba(20, 26, 34, 0.88);
   --navbar-text: #ffffff;
   --navbar-muted: #9ca3af;
+  --color-themeswitcher-active: #ffd21e;
+  --button-enter-text: #F8FAFC;
 
   /* Map / panels */
   --panel-bg: rgba(20, 26, 34, 0.95);
