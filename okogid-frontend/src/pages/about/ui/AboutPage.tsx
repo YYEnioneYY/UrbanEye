@@ -330,25 +330,35 @@ export function AboutPage() {
                       <MailIcon />
                       {member.email}
                     </a>
-
+                                    
                     <div className="flex items-center gap-2 font-inter text-sm text-[var(--color-text-secondary)]">
                       <ClockIcon />
                       {member.schedule}
                     </div>
-
-                    <p className="font-inter text-sm text-[var(--color-text-secondary)]">
+                                    
+                    <a
+                      href={member.telegramUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block font-inter text-sm text-[var(--color-text-secondary)] transition hover:text-[var(--color-primary)]"
+                    >
                       Telegram:{' '}
-                      <span className="font-semibold text-[var(--color-text-primary)]">
+                      <span className="font-semibold text-[var(--color-text-primary)] transition group-hover:text-[var(--color-primary)]">
                         {member.telegram}
                       </span>
-                    </p>
-
-                    <p className="font-inter text-sm text-[var(--color-text-secondary)]">
+                    </a>
+                                    
+                    <a
+                      href={member.githubUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block font-inter text-sm text-[var(--color-text-secondary)] transition hover:text-[var(--color-primary)]"
+                    >
                       GitHub:{' '}
                       <span className="font-semibold text-[var(--color-text-primary)]">
                         {member.github}
                       </span>
-                    </p>
+                    </a>
                   </div>
                 </article>
               ))}

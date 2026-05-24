@@ -216,7 +216,7 @@ html[data-theme='dark'] .footer-logo-image--dark {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: var(--color-primary);
+  background: var(--button-primary-bg);
   border: 3px solid var(--color-surface-solid);
   box-shadow:
     0 12px 30px var(--color-shadow),

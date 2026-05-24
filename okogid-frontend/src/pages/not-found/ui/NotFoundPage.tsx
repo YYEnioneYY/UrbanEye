@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { useNavigate } from 'react-router';
 
 import notFoundBgLight from '../../../shared/assets/not-found/not-found-bg-light.png';
 import notFoundBgDark from '../../../shared/assets/not-found/not-found-bg-dark.png';
@@ -22,6 +22,8 @@ function ArrowRightIcon() {
 }
 
 export function NotFoundPage() {
+  const navigate = useNavigate();
+
   return (
     <section className="relative min-h-screen overflow-hidden bg-[var(--color-bg)]">
       <img
@@ -55,13 +57,15 @@ export function NotFoundPage() {
             перемещена, удалена или адрес был введён с ошибкой.
           </p>
 
-          <Link
-            to="/"
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            aria-label="Вернуться назад"
             className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-[var(--button-third-bg)] px-6 text-[14px] font-semibold text-[var(--button-third-text)] shadow-sm transition hover:scale-[1.02] hover:bg-[var(--button-third-hover)]"
           >
-            Вернуться на главную
+            Вернуться назад
             <ArrowRightIcon />
-          </Link>
+          </button>
         </div>
       </div>
     </section>

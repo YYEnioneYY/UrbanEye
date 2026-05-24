@@ -1,4 +1,5 @@
 import type { Camera } from '../../../entities/camera/model/types';
+import { Link } from 'react-router';
 
 type CameraDetailsPanelProps = {
   camera: Camera | null;
@@ -129,13 +130,22 @@ export function CameraDetailsPanel({
           </div>
 
           <div className="border-t border-[var(--color-border)] bg-[var(--panel-bg)] px-5 py-4">
-            <button
-              type="button"
-              disabled={camera.status !== 'online'}
-              className="w-full rounded-2xl bg-[var(--button-primary-bg)] px-5 py-3.5 text-sm font-extrabold text-[var(--color-primary-text)] shadow-sm transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:hover:scale-100"
-            >
-              Смотреть камеру
-            </button>
+            {camera.status === 'online' ? (
+              <Link
+                to={`/cameras/${camera.id}`}
+                className="flex w-full items-center justify-center rounded-2xl bg-[var(--color-primary)] px-5 py-3.5 text-sm font-extrabold text-[var(--color-secondary-text)] shadow-sm transition hover:scale-[1.01]"
+              >
+                Смотреть камеру
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="w-full rounded-2xl bg-gray-200 px-5 py-3.5 text-sm font-extrabold text-gray-400 disabled:cursor-not-allowed"
+              >
+                Камера недоступна
+              </button>
+            )}
           </div>
         </div>
       )}

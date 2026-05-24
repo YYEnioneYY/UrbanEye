@@ -8,7 +8,7 @@ export function HomePage() {
           Онлайн-экскурсии по городам через камеры
         </div>
 
-        <h1 className="text-5xl font-bold tracking-tight text-[#111827] md:text-7xl">
+        <h1 className="text-5xl font-bold tracking-tight text-[var(--color-text-primary)] md:text-7xl">
           Смотри город так, будто ты уже там
         </h1>
 
@@ -25,9 +25,11 @@ export function HomePage() {
             Открыть карту
           </Link>
 
-          <button className="rounded-2xl border border-black/10 bg-white px-6 py-3 font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50">
+          <Link 
+            to="about" 
+            className="rounded-2xl border border-black/10 bg-white px-6 py-3 font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50">
             Узнать о проекте
-          </button>
+          </Link>
         </div>
       </div>
     </section>
