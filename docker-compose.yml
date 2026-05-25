@@ -1,4 +1,30 @@
 services:
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: urbaneye-api-gateway
+    restart: unless-stopped
+    environment:
+      PORT: ${GATEWAY_PORT}
+
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      KAFKA_CLIENT_ID: api-gateway
+      KAFKA_GROUP_ID: api-gateway-consumer
+
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_TTL_SECONDS: ${JWT_REFRESH_TTL_SECONDS}
+
+      FRONTEND_URL: ${FRONTEND_URL}
+    ports:
+      - "${GATEWAY_PORT}:${GATEWAY_PORT}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - okogid-network
   geo-service:
     build:
       context: ./geo-service
@@ -7,3 +33,127 @@ services:
       - ./geo-service/.env
     ports:
       - "8080:8080"
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: okogid-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - okogid-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:4.3.0
+    container_name: okogid-kafka
+    hostname: kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9094:9094"
+    volumes:
+      - kafka_data:/tmp/kraft-combined-logs
+    networks:
+      - okogid-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: okogid-notification-service
+    restart: unless-stopped
+    environment:
+      PORT: ${NOTIFICATION_PORT}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL}
+
+      FRONTEND_URL: ${FRONTEND_URL}
+    ports:
+      - "${NOTIFICATION_PORT}:${NOTIFICATION_PORT}"
+    networks:
+      - okogid-network
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: okogid-auth-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${AUTH_DATABASE_URL}
+
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID}
+      KAFKA_GROUP_ID: ${KAFKA_GROUP_ID}
+
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS}
+      JWT_REFRESH_TTL_SECONDS: ${JWT_REFRESH_TTL_SECONDS}
+
+      PASSWORD_RESET_TTL_MINUTES: ${PASSWORD_RESET_TTL_MINUTES}
+
+      ARGON2_MEMORY_COST: ${ARGON2_MEMORY_COST}
+      ARGON2_TIME_COST: ${ARGON2_TIME_COST}
+      ARGON2_PARALLELISM: ${ARGON2_PARALLELISM}
+
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      notification-service:
+        condition: service_started
+    networks:
+      - okogid-network
+
+volumes:
+  postgres_data:
+  kafka_data:
+
+networks:
+  okogid-network:
+    driver: bridge
