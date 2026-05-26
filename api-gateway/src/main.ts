@@ -8,7 +8,12 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const expressInstance = app.getHttpAdapter().getInstance();
+  expressInstance.set('trust proxy', true);
+
   const configService = app.get(ConfigService);
+
+  app.setGlobalPrefix('api');
 
   app.use(cookieParser());
 
@@ -26,8 +31,8 @@ async function bootstrap() {
   );
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('UrbanEye API Gateway')
-    .setDescription('HTTP API Gateway для UrbanEye')
+    .setTitle('OkoGID API Gateway')
+    .setDescription('HTTP API Gateway для OkoGID')
     .setVersion('1.0.0')
     .addBearerAuth(
       {
