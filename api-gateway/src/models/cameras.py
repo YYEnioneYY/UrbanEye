@@ -2,14 +2,14 @@ from sqlalchemy.orm import Mapped, mapped_column
 from src.database import Base
 import uuid
 from sqlalchemy import String, Text, DateTime, Boolean, Float, ForeignKey, CheckConstraint, Integer, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timezone
 from geoalchemy2 import Geography
 
 #--------------------------------------------------------------------------------CameraCategories-------------------------------------------------------------------------------------
 
-class CameraCategories (Base):
+class CameraCategoriesModel(Base):
     __tablename__ = "camera_categories"
     
     id: Mapped[uuid.UUID] = mapped_column(
@@ -23,21 +23,23 @@ class CameraCategories (Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     icon: Mapped[str | None] = mapped_column(String(128), nullable=True)
     color: Mapped[str | None] = mapped_column(String(32), nullable=True)
-
+    
+    cameras = relationship("CameraModel", back_populates="category")
+    
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow
+        default=datetime.now(timezone.utc)
     )
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
         default=datetime.now(timezone.utc),
         onupdate=datetime.now(timezone.utc)
     )
 #--------------------------------------------------------------------------------Camera-------------------------------------------------------------------------------------
-class Camera(Base):
+class CameraModel(Base):
     __tablename__ = "cameras"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -68,6 +70,9 @@ class Camera(Base):
         ForeignKey("camera_categories.id"),
         nullable=True
     )
+    
+    category = relationship("CameraCategoriesModel", back_populates="cameras")
+    
 
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -100,6 +105,21 @@ class Camera(Base):
         nullable=True
     )
     
+    stream_config = relationship(
+        "CameraStreamConfigModel",
+        back_populates="camera",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+    credentials = relationship(
+        "CameraCredentialsModel",
+        back_populates="camera",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+    
+    
     __table_args__ = (
         CheckConstraint("latitude >= -90 AND latitude <= 90", name="chk_cameras_latitude"),
         CheckConstraint("longitude >= -180 AND longitude <= 180", name="chk_cameras_longitude"),
@@ -109,7 +129,7 @@ class Camera(Base):
     )
     
 #---------------------------------------------------------------------------CameraStatusHistory-------------------------------------------------------------------------------------
-class CameraStatusHistory(Base):
+class CameraStatusHistoryModel(Base):
         
     __tablename__ = "camera_status_history"
 
@@ -148,7 +168,7 @@ class CameraStatusHistory(Base):
     
     
 #----------------------------------------------------------------------------CameraStreamConfig------------------------------------------------------------------------------------
-class CameraStreamConfig(Base):
+class CameraStreamConfigModel(Base):
     __tablename__ = "camera_stream_configs"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -159,65 +179,41 @@ class CameraStreamConfig(Base):
 
     camera_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("cameras.id"),
+        ForeignKey("cameras.id", ondelete="CASCADE"),
         nullable=False,
-        unique=True  
+        unique=True
     )
 
-    protocol: Mapped[str] = mapped_column(
-        String(32),
-        nullable=False,
-        default="rtsp"
-    )
-
+    protocol: Mapped[str] = mapped_column(String(32), nullable=False, default="rtsp")
     host: Mapped[str] = mapped_column(String(255), nullable=False)
     port: Mapped[int] = mapped_column(Integer, nullable=False, default=554)
     path: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    rtsp_transport: Mapped[str | None] = mapped_column(
-        String(32),
-        nullable=True,
-        default="tcp"
-    )
+    rtsp_transport: Mapped[str | None] = mapped_column(String(32), nullable=True, default="tcp")
 
     main_stream_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     sub_stream_path: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    onvif_enabled: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False
-    )
-
+    onvif_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     onvif_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
     onvif_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
         default=lambda: datetime.now(timezone.utc)
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc)
     )
-
-    __table_args__ = (
-        CheckConstraint(
-            "port > 0 AND port <= 65535",
-            name="chk_camera_stream_configs_port"
-        ),
-        CheckConstraint(
-            "onvif_port IS NULL OR (onvif_port > 0 AND onvif_port <= 65535)",
-            name="chk_camera_stream_configs_onvif_port"
-        ),
-    )
+    
+    camera = relationship("CameraModel", back_populates="stream_config")
 
 #----------------------------------------------------------------------------------CameraCredentials--------------------------------------------------------------------------------------
-class CameraCredentials(Base):
+class CameraCredentialsModel(Base):
     __tablename__ = "camera_credentials"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -228,10 +224,11 @@ class CameraCredentials(Base):
 
     camera_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("cameras.id"),
+        ForeignKey("cameras.id", ondelete="CASCADE"),
         nullable=False,
         unique=True
     )
+
 
     username_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     password_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -243,22 +240,16 @@ class CameraCredentials(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
         default=lambda: datetime.now(timezone.utc)
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc)
     )
 
-    rotated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True
-    )
-
-    __table_args__ = (
-        UniqueConstraint("camera_id", name="uq_camera_credentials_camera_id"),
-    )
+    rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    
+    camera = relationship("CameraModel", back_populates="credentials")
+    
