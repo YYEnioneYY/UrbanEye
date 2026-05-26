@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router';
+import { NavLink, useLocation } from 'react-router';
 
 import { navLinks } from '../model/navLinks';
 import { ThemeSwitcher } from './ThemeSwitcher';
+
+import { AuthMenuBlock } from '../../../features/auth/ui/AuthMenuBlock';
 
 export function BurgerMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -101,12 +103,7 @@ export function BurgerMenu() {
             <ThemeSwitcher />
           </div>
 
-          <Link
-            to="/login"
-            className="mt-2 rounded-2xl border border-[var(--color-border)] px-4 py-3 text-center text-sm font-bold text-[var(--button-enter-text)] transition hover:scale-[1.01] hover:text-[var(--color-primary)]"
-          >
-            Войти
-          </Link>
+          <AuthMenuBlock />
         </div>
       </div>
     </div>

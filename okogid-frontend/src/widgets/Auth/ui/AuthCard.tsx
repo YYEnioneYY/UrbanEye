@@ -1,8 +1,17 @@
-import { Link } from 'react-router';
+import { useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router';
+
+import { login, register } from '../../../features/auth/api/authApi';
+import {
+  validateEmail,
+  validatePassword,
+  validatePasswordRepeat,
+} from '../../../features/auth/lib/authValidation';
+import { useAuthStore } from '../../../features/auth/model/authStore';
 
 import { AuthInput } from './AuthInput';
-import { AuthTabs } from './AuthTabs';
 import { AuthPasswordInput } from './AuthPasswordInput';
+import { AuthTabs } from './AuthTabs';
 
 type AuthCardProps = {
   mode: 'login' | 'register';
@@ -29,6 +38,74 @@ function MailIcon() {
 export function AuthCard({ mode }: AuthCardProps) {
   const isLogin = mode === 'login';
 
+  const navigate = useNavigate();
+  const setAuth = useAuthStore((state) => state.setAuth);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [repeatPassword, setRepeatPassword] = useState('');
+
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    setError(null);
+
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+
+    if (emailError) {
+      setError(emailError);
+      return;
+    }
+
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
+
+    if (!isLogin) {
+      const repeatPasswordError = validatePasswordRepeat(
+        password,
+        repeatPassword,
+      );
+
+      if (repeatPasswordError) {
+        setError(repeatPasswordError);
+        return;
+      }
+    }
+
+    try {
+      setIsLoading(true);
+
+      const authData = isLogin
+        ? await login({
+            email,
+            password,
+          })
+        : await register({
+            email,
+            password,
+          });
+
+      setAuth(authData);
+
+      navigate('/map');
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Что-то пошло не так. Попробуйте ещё раз.';
+
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="rounded-[30px] border border-[var(--color-border)] bg-[var(--color-auth-card-bg)] p-6 shadow-[0_24px_80px_rgba(15,19,24,0.12)] backdrop-blur-2xl sm:p-8">
       <AuthTabs />
@@ -51,27 +128,43 @@ export function AuthCard({ mode }: AuthCardProps) {
         </h1>
       </div>
 
-      <form className="mt-8 space-y-5">
-
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
         <AuthInput
           icon={<MailIcon />}
           type="email"
           placeholder="Введите email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          autoComplete="email"
         />
 
         <AuthPasswordInput
           placeholder={isLogin ? 'Введите пароль' : 'Придумайте пароль'}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete={isLogin ? 'current-password' : 'new-password'}
         />
 
         {!isLogin && (
-          <AuthPasswordInput placeholder="Повторите пароль" />
+          <AuthPasswordInput
+            placeholder="Повторите пароль"
+            value={repeatPassword}
+            onChange={(event) => setRepeatPassword(event.target.value)}
+            autoComplete="new-password"
+          />
+        )}
+
+        {error && (
+          <div className="rounded-[18px] border border-red-500/20 bg-red-500/10 px-4 py-3 font-inter text-[12px] font-medium text-red-600">
+            {error}
+          </div>
         )}
 
         {isLogin && (
           <div className="flex justify-end">
             <Link
               to="/forgot-password"
-              className="text-sm font-medium text-[var(--color-primary)] font-inter transition hover:opacity-80"
+              className="font-inter text-sm font-medium text-[var(--color-primary)] transition hover:opacity-80"
             >
               Забыли пароль?
             </Link>
@@ -80,13 +173,20 @@ export function AuthCard({ mode }: AuthCardProps) {
 
         <button
           type="submit"
-          className="mt-2 h-13 w-full rounded-[18px] bg-[var(--button-third-bg)] text-[16px] font-semibold text-[var(--button-third-text)] shadow-sm transition hover:scale-[1.01] hover:bg-[var(--button-third-hover)]"
+          disabled={isLoading}
+          className="mt-2 h-13 w-full rounded-[18px] bg-[var(--button-third-bg)] text-[16px] font-semibold text-[var(--button-third-text)] shadow-sm transition hover:scale-[1.01] hover:bg-[var(--button-third-hover)] disabled:cursor-wait disabled:opacity-70 disabled:hover:scale-100"
         >
-          {isLogin ? 'Войти' : 'Зарегистрироваться'}
+          {isLoading
+            ? isLogin
+              ? 'Входим...'
+              : 'Регистрируем...'
+            : isLogin
+              ? 'Войти'
+              : 'Зарегистрироваться'}
         </button>
       </form>
 
-      <div className="mt-8 text-center text-[12px] font-inter text-[var(--color-text-primary)]">
+      <div className="mt-8 text-center font-inter text-[12px] text-[var(--color-text-primary)]">
         {isLogin ? (
           <>
             У вас нет аккаунта?{' '}

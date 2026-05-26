@@ -15,6 +15,7 @@ import '@fontsource/inter/700.css';
 import '@fontsource/inter/800.css';
 
 import { AppRouter } from './app/providers/AppRouter';
+import { AuthSessionProvider } from './app/providers/AuthSessionProvider';
 import { ThemeProvider } from './app/providers/ThemeProvider';
 import './app/styles/index.css';
 
@@ -22,7 +23,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider>
-        <AppRouter />
+        <AuthSessionProvider>
+          <AppRouter />
+        </AuthSessionProvider>
       </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,

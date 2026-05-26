@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router';
+import { NavLink, useLocation } from 'react-router';
 
 import { navLinks } from '../../NavBar/model/navLinks';
 import { ThemeSwitcher } from '../../NavBar/ui/ThemeSwitcher';
+
+import { AuthMenuBlock } from '../../../features/auth/ui/AuthMenuBlock';
 
 export function MapBurgerMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -103,12 +105,7 @@ export function MapBurgerMenu() {
             <ThemeSwitcher />
           </div>
 
-          <Link
-            to="/login"
-            className="mt-3 rounded-2xl border border-[var(--color-border)] px-4 py-3 text-center text-sm font-bold text-[var(--button-enter-text)] transition hover:scale-[1.01] hover:text-[var(--color-primary)]"
-          >
-            Войти
-          </Link>
+          <AuthMenuBlock />
         </div>
       </div>
     </div>

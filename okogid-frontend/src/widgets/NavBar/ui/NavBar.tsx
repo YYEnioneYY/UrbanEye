@@ -8,6 +8,8 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 
 import { BurgerMenu } from './BurgerMenu';
 
+import { AuthHeaderAction } from '../../../features/auth/ui/AuthHeaderAction';
+
 export function NavBar() {
   return (
     <header className="select-none fixed left-0 right-0 top-0 z-50 px-4 pt-6 md:px-8">
@@ -57,14 +59,11 @@ export function NavBar() {
           <div className="hidden sm:block">
             <ThemeSwitcher />
           </div>
-
-          <Link
-            to="/login"
-            className="hidden rounded-full px-5 py-2.5 text-sm font-inter font-bold text-[var(--button-enter-text)] border border-[var(--color-border)] transition hover:scale-[1.03] xl:flex hover:text-[var(--color-primary)]"
-          >
-            Войти
-          </Link>
-
+                  
+          <div className="hidden lg:block">
+            <AuthHeaderAction />
+          </div>
+                  
           <BurgerMenu />
         </div>
       </div>

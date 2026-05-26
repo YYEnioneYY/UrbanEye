@@ -43,22 +43,20 @@ function normalizeGeoLocation(data: RawGeoLocationResponse): GeoLocation {
     city: data.city,
     latitude,
     longitude,
+    source: 'ip',
   };
 }
 
 export async function getMyGeoLocation(
   signal?: AbortSignal,
 ): Promise<GeoLocation> {
-  const response = await fetch(
-    createApiUrl(API_CONFIG.geoApiBaseUrl, '/geo/me'),
-    {
-      method: 'GET',
-      signal,
-      headers: {
-        Accept: 'application/json',
-      },
+  const response = await fetch(createApiUrl(API_CONFIG.apiBaseUrl, '/geo/me'), {
+    method: 'GET',
+    signal,
+    headers: {
+      Accept: 'application/json',
     },
-  );
+  });
 
   if (!response.ok) {
     throw new Error(`Geo API request failed: ${response.status}`);

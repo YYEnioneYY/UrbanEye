@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useState,
   type ReactNode,
 } from 'react';
@@ -30,8 +31,22 @@ function getInitialThemeMode(): ThemeMode {
   return 'auto';
 }
 
+function disableThemeTransitionsTemporarily() {
+  const root = document.documentElement;
+
+  root.classList.add('theme-changing');
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      root.classList.remove('theme-changing');
+    });
+  });
+}
+
 function applyTheme(themeMode: ThemeMode) {
   const resolvedTheme = resolveThemeMode(themeMode);
+
+  disableThemeTransitionsTemporarily();
 
   localStorage.setItem(THEME_STORAGE_KEY, themeMode);
 
@@ -59,9 +74,11 @@ type ThemeProviderProps = {
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyTheme(themeMode);
+  }, [themeMode]);
 
+  useEffect(() => {
     if (themeMode !== 'auto') {
       return;
     }
