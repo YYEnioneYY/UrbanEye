@@ -25,14 +25,30 @@ services:
         condition: service_started
     networks:
       - okogid-network
+
   geo-service:
     build:
       context: ./geo-service
-    container_name: geo-service
-    env_file:
-      - ./geo-service/.env
-    ports:
-      - "8080:8080"
+      dockerfile: Dockerfile
+    container_name: urbaneye-geo-service
+    restart: unless-stopped
+    environment:
+      PORT: ${GEO_SERVICE_PORT}
+      GEOIP_DB_PATH: /app/GeoLite2-City.mmdb
+      KAFKA_BROKERS: ${KAFKA_BROKERS} 
+      KAFKA_GROUP_ID: ${GEO_KAFKA_GROUP_ID}
+      KAFKA_REQUEST_TOPIC: ${GEO_KAFKA_REQUEST_TOPIC}
+      ALLOWED_ORIGINS: ${FRONTEND_URL}  
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - okogid-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   postgres:
     image: postgres:16-alpine
