@@ -1,15 +1,36 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net"
-	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/oschwald/geoip2-golang"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
+
+const (
+	headerCorrelationID  = "kafka_correlationId"
+	headerReplyTopic     = "kafka_replyTopic"
+	headerReplyPartition = "kafka_replyPartition"
+)
+
+type App struct {
+	db          *geoip2.Reader
+	kafkaClient *kgo.Client
+}
+
+type GeoRequest struct {
+	IP string `json:"ip"`
+}
 
 type GeoResponse struct {
 	IP        string  `json:"ip,omitempty"`
@@ -20,11 +41,24 @@ type GeoResponse struct {
 	Longitude float64 `json:"longitude"`
 }
 
+type NestKafkaSuccessResponse struct {
+	Response   GeoResponse `json:"response"`
+	IsDisposed bool        `json:"isDisposed"`
+}
+
+type NestKafkaErrorResponse struct {
+	Err        KafkaError `json:"err"`
+	IsDisposed bool      `json:"isDisposed"`
+}
+
+type KafkaError struct {
+	StatusCode int    `json:"statusCode"`
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+}
+
 func main() {
-	dbPath := os.Getenv("GEOIP_DB_PATH")
-	if dbPath == "" {
-		dbPath = "./GeoLite2-City.mmdb"
-	}
+	dbPath := getEnv("GEOIP_DB_PATH", "./GeoLite2-City.mmdb")
 
 	db, err := geoip2.Open(dbPath)
 	if err != nil {
@@ -32,122 +66,250 @@ func main() {
 	}
 	defer db.Close()
 
-	mux := http.NewServeMux()
+	brokers := splitEnv(getEnv("KAFKA_BROKERS", "localhost:9092"))
+	groupID := getEnv("KAFKA_GROUP_ID", "geo-service-consumer")
+	requestTopic := getEnv("KAFKA_REQUEST_TOPIC", "geo.me")
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-
-	mux.HandleFunc("/geo/me", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		ipStr := getClientIP(r)
-
-		ip := net.ParseIP(ipStr)
-		if ip == nil {
-			http.Error(w, "invalid ip", http.StatusBadRequest)
-			return
-		}
-
-		record, err := db.City(ip)
-		if err != nil {
-			http.Error(w, "geo lookup failed", http.StatusInternalServerError)
-			return
-		}
-
-		region := ""
-		if len(record.Subdivisions) > 0 {
-			region = record.Subdivisions[0].Names["en"]
-		}
-		
-		resp := GeoResponse{
-			IP:        anonymizeIP(ipStr),
-			Country:   record.Country.IsoCode,
-			Region:    region,
-			City:      record.City.Names["en"],
-			Latitude:  record.Location.Latitude,
-			Longitude: record.Location.Longitude,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	})
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	handler := withCORS(mux)
-
-	log.Println("geo-service started on :" + port)
-	log.Fatal(http.ListenAndServe(":"+port, handler))
-}
-
-func withCORS(next http.Handler) http.Handler {
-	allowedOrigins := parseAllowedOrigins(os.Getenv("ALLOWED_ORIGINS"))
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-
-		if origin != "" && isAllowedOrigin(origin, allowedOrigins) {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			w.Header().Set("Access-Control-Max-Age", "86400")
-		}
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func parseAllowedOrigins(value string) map[string]bool {
-	origins := make(map[string]bool)
-
-	for _, origin := range strings.Split(value, ",") {
-		origin = strings.TrimSpace(origin)
-		if origin != "" {
-			origins[origin] = true
-		}
-	}
-
-	return origins
-}
-
-func isAllowedOrigin(origin string, allowedOrigins map[string]bool) bool {
-	return allowedOrigins[origin]
-}
-
-func getClientIP(r *http.Request) string {
-	if ip := r.Header.Get("CF-Connecting-IP"); ip != "" {
-		return strings.TrimSpace(ip)
-	}
-
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return strings.TrimSpace(ip)
-	}
-
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		parts := strings.Split(forwarded, ",")
-		return strings.TrimSpace(parts[0])
-	}
-
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	kafkaClient, err := kgo.NewClient(
+		kgo.SeedBrokers(brokers...),
+		kgo.ConsumerGroup(groupID),
+		kgo.ConsumeTopics(requestTopic),
+	)
 	if err != nil {
-		return r.RemoteAddr
+		log.Fatal(err)
+	}
+	defer kafkaClient.Close()
+
+	app := &App{
+		db:          db,
+		kafkaClient: kafkaClient,
 	}
 
-	return host
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer cancel()
+
+	log.Println("geo-service started in Kafka-only mode")
+	log.Println("kafka brokers:", strings.Join(brokers, ","))
+	log.Println("kafka request topic:", requestTopic)
+	log.Println("kafka group id:", groupID)
+
+	app.consumeKafka(ctx)
+}
+
+func (a *App) consumeKafka(ctx context.Context) {
+	for {
+		fetches := a.kafkaClient.PollFetches(ctx)
+
+		if ctx.Err() != nil {
+			log.Println("geo-service stopped")
+			return
+		}
+
+		if errs := fetches.Errors(); len(errs) > 0 {
+			for _, err := range errs {
+				log.Printf(
+					"kafka fetch error: topic=%s partition=%d err=%v",
+					err.Topic,
+					err.Partition,
+					err.Err,
+				)
+			}
+
+			continue
+		}
+
+		fetches.EachRecord(func(record *kgo.Record) {
+			a.handleKafkaRecord(ctx, record)
+		})
+	}
+}
+
+func (a *App) handleKafkaRecord(ctx context.Context, record *kgo.Record) {
+	var req GeoRequest
+
+	if err := json.Unmarshal(record.Value, &req); err != nil {
+		a.replyKafkaError(ctx, record, 400, "INVALID_PAYLOAD", "Invalid geo request payload")
+		return
+	}
+
+	if strings.TrimSpace(req.IP) == "" {
+		a.replyKafkaError(ctx, record, 400, "IP_REQUIRED", "IP is required")
+		return
+	}
+
+	resp, err := a.lookupIP(req.IP)
+	if err != nil {
+		a.replyKafkaError(ctx, record, 400, "GEO_LOOKUP_FAILED", err.Error())
+		return
+	}
+
+	a.replyKafkaSuccess(ctx, record, resp)
+}
+
+func (a *App) lookupIP(ipStr string) (GeoResponse, error) {
+	ipStr = normalizeIPString(ipStr)
+
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return GeoResponse{}, errors.New("invalid ip")
+	}
+
+	record, err := a.db.City(ip)
+	if err != nil {
+		return GeoResponse{}, errors.New("geo lookup failed")
+	}
+
+	region := ""
+	if len(record.Subdivisions) > 0 {
+		region = record.Subdivisions[0].Names["en"]
+	}
+
+	return GeoResponse{
+		IP:        anonymizeIP(ipStr),
+		Country:   record.Country.IsoCode,
+		Region:    region,
+		City:      record.City.Names["en"],
+		Latitude:  record.Location.Latitude,
+		Longitude: record.Location.Longitude,
+	}, nil
+}
+
+func (a *App) replyKafkaSuccess(
+	ctx context.Context,
+	requestRecord *kgo.Record,
+	response GeoResponse,
+) {
+	replyTopic := string(getKafkaHeader(requestRecord, headerReplyTopic))
+	correlationID := getKafkaHeader(requestRecord, headerCorrelationID)
+	replyPartition := parseReplyPartition(
+		getKafkaHeader(requestRecord, headerReplyPartition),
+	)
+
+	if replyTopic == "" || len(correlationID) == 0 {
+		log.Println("kafka reply headers are missing")
+		return
+	}
+
+	body, err := json.Marshal(NestKafkaSuccessResponse{
+		Response:   response,
+		IsDisposed: true,
+	})
+	if err != nil {
+		log.Println("failed to marshal kafka success response:", err)
+		return
+	}
+
+	a.produceReply(ctx, replyTopic, replyPartition, requestRecord.Key, correlationID, body)
+}
+
+func (a *App) replyKafkaError(
+	ctx context.Context,
+	requestRecord *kgo.Record,
+	statusCode int,
+	code string,
+	message string,
+) {
+	replyTopic := string(getKafkaHeader(requestRecord, headerReplyTopic))
+	correlationID := getKafkaHeader(requestRecord, headerCorrelationID)
+	replyPartition := parseReplyPartition(
+		getKafkaHeader(requestRecord, headerReplyPartition),
+	)
+
+	if replyTopic == "" || len(correlationID) == 0 {
+		log.Println("kafka reply headers are missing")
+		return
+	}
+
+	body, err := json.Marshal(NestKafkaErrorResponse{
+		Err: KafkaError{
+			StatusCode: statusCode,
+			Code:       code,
+			Message:    message,
+		},
+		IsDisposed: true,
+	})
+	if err != nil {
+		log.Println("failed to marshal kafka error response:", err)
+		return
+	}
+
+	a.produceReply(ctx, replyTopic, replyPartition, requestRecord.Key, correlationID, body)
+}
+
+func (a *App) produceReply(
+	ctx context.Context,
+	replyTopic string,
+	replyPartition int32,
+	key []byte,
+	correlationID []byte,
+	value []byte,
+) {
+	done := make(chan error, 1)
+
+	a.kafkaClient.Produce(ctx, &kgo.Record{
+		Topic:     replyTopic,
+		Partition: replyPartition,
+		Key:       key,
+		Value:     value,
+		Headers: []kgo.RecordHeader{
+			{
+				Key:   headerCorrelationID,
+				Value: correlationID,
+			},
+		},
+	}, func(_ *kgo.Record, err error) {
+		done <- err
+	})
+
+	select {
+	case err := <-done:
+		if err != nil {
+			log.Println("failed to produce kafka reply:", err)
+		}
+	case <-time.After(5 * time.Second):
+		log.Println("kafka reply timeout")
+	}
+}
+
+func getKafkaHeader(record *kgo.Record, key string) []byte {
+	for _, header := range record.Headers {
+		if header.Key == key {
+			return header.Value
+		}
+	}
+
+	return nil
+}
+
+func parseReplyPartition(value []byte) int32 {
+	if len(value) == 0 {
+		return 0
+	}
+
+	partition, err := strconv.Atoi(string(value))
+	if err != nil {
+		return 0
+	}
+
+	return int32(partition)
+}
+
+func normalizeIPString(ip string) string {
+	ip = strings.TrimSpace(ip)
+
+	if strings.HasPrefix(ip, "::ffff:") {
+		return strings.TrimPrefix(ip, "::ffff:")
+	}
+
+	if ip == "::1" {
+		return "127.0.0.1"
+	}
+
+	return ip
 }
 
 func anonymizeIP(ip string) string {
@@ -161,4 +323,27 @@ func anonymizeIP(ip string) string {
 	}
 
 	return ip
+}
+
+func splitEnv(value string) []string {
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+
+	return result
+}
+
+func getEnv(key string, fallback string) string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+
+	return value
 }

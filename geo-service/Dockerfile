@@ -1,24 +1,26 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
+
+RUN apk add --no-cache ca-certificates git
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-RUN go build -o geo-service main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o geo-service .
+
 
 FROM alpine:3.20
 
 WORKDIR /app
 
-COPY --from=builder /app/geo-service /app/geo-service
-COPY GeoLite2-City.mmdb /app/GeoLite2-City.mmdb
+RUN apk add --no-cache ca-certificates
 
-ENV PORT=8080
+COPY --from=builder /app/geo-service ./geo-service
+COPY GeoLite2-City.mmdb ./GeoLite2-City.mmdb
+
 ENV GEOIP_DB_PATH=/app/GeoLite2-City.mmdb
 
-EXPOSE 8080
-
-CMD ["/app/geo-service"]
+CMD ["./geo-service"]
