@@ -166,6 +166,53 @@ services:
     networks:
       - okogid-network
 
+  camera-mediamtx:
+    image: bluenviron/mediamtx:1
+    container_name: camera-mediamtx
+    restart: unless-stopped
+    ports:
+      - "8554:8554"
+      - "8889:8889"
+      - "8189:8189/udp"
+    expose:
+      - "9997"
+      - "9998"
+    volumes:
+      - ./stream-service/mediamtx.yml:/mediamtx.yml:ro
+    networks:
+      - okogid-network
+
+  camera-stream-api:
+    build:
+      context: ./stream-service
+      dockerfile: Dockerfile
+    container_name: camera-stream-api
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+
+      CAMERAS_CONFIG_PATH: /app/config/cameras.local.json
+
+      MEDIAMTX_API_URL: http://camera-mediamtx:9997
+      MEDIAMTX_API_USER: stream_service
+      MEDIAMTX_API_PASSWORD: stream_service_password
+
+      MEDIAMTX_WEBRTC_PUBLIC_URL: http://localhost:8889
+
+      KAFKA_ENABLED: "true"
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_CLIENT_ID: camera-stream-service
+      KAFKA_GROUP_ID: camera-stream-service-consumer
+    volumes:
+      - ./stream-service/config:/app/config:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+      camera-mediamtx:
+        condition: service_started
+    networks:
+      - okogid-network
+
 volumes:
   postgres_data:
   kafka_data:
