@@ -1,5 +1,6 @@
-import type { Camera } from '../../../entities/camera/model/types';
 import { Link } from 'react-router';
+
+import type { Camera } from '../../../entities/camera/model/types';
 
 type CameraDetailsPanelProps = {
   camera: Camera | null;
@@ -22,6 +23,16 @@ function getStatusClassName(status: Camera['status']) {
   }
 
   return 'bg-yellow-500/10 text-yellow-700 ring-yellow-500/20';
+}
+
+function getCategoryLabel(category: string) {
+  const categories: Record<string, string> = {
+    landmark: 'Достопримечательность',
+    history: 'История',
+    modern: 'Современное место',
+  };
+
+  return categories[category] ?? category;
 }
 
 export function CameraDetailsPanel({
@@ -93,7 +104,11 @@ export function CameraDetailsPanel({
               </span>
 
               <span className="rounded-full bg-[var(--color-bg-soft)] px-3 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
-                {camera.latitude.toFixed(4)}, {camera.longitude.toFixed(4)}
+                {camera.city}
+              </span>
+
+              <span className="rounded-full bg-[var(--color-bg-soft)] px-3 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+                {getCategoryLabel(camera.category)}
               </span>
             </div>
 
@@ -108,23 +123,37 @@ export function CameraDetailsPanel({
               </p>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
+            <div className="mt-5 grid gap-2">
               <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-3 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase text-[var(--color-text-muted)]">
-                  Тип
+                  Адрес
                 </p>
+
                 <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
-                  IP-камера
+                  {camera.address}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-3 shadow-sm">
-                <p className="text-[11px] font-semibold uppercase text-[var(--color-text-muted)]">
-                  Поток
-                </p>
-                <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
-                  {camera.streamUrl ? 'Доступен' : 'Скоро'}
-                </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase text-[var(--color-text-muted)]">
+                    Тип
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
+                    IP-камера
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase text-[var(--color-text-muted)]">
+                    Поток
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
+                    {camera.streamEndpoint ? 'Доступен' : 'Скоро'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

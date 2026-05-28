@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 
-import { mockCameras } from '../../../entities/camera/model/mockCameras';
 import type { Camera } from '../../../entities/camera/model/types';
+import type { CameraStream } from '../../../entities/stream/model/types';
+import { getCameraStreamByCameraId } from '../../../entities/stream/api/streamsApi';
 import { CameraPlayer } from '../../../features/camera-player/ui/CameraPlayer';
 
 function getStatusLabel(status: Camera['status']) {
@@ -20,6 +22,16 @@ function getStatusClassName(status: Camera['status']) {
   }
 
   return 'bg-yellow-500/10 text-yellow-700 ring-yellow-500/20';
+}
+
+function getCategoryLabel(category: string) {
+  const categories: Record<string, string> = {
+    landmark: 'Достопримечательность',
+    history: 'История',
+    modern: 'Современное место',
+  };
+
+  return categories[category] ?? category;
 }
 
 function MapPinIcon() {
@@ -59,25 +71,144 @@ function CameraIcon() {
   );
 }
 
+function StreamIcon() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 9a6 6 0 0 1 12 0" />
+      <path d="M9 12a3 3 0 0 1 6 0" />
+      <path d="M12 15h.01" />
+      <path d="M4 17h16" />
+      <path d="M7 21h10" />
+    </svg>
+  );
+}
+
+function InfoCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl bg-[var(--color-bg-soft)] p-4">
+      <span className="mt-0.5 text-[var(--color-primary)]">{icon}</span>
+
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-[var(--color-text-primary)]">
+          {label}
+        </p>
+
+        <p className="mt-1 break-words font-inter text-sm text-[var(--color-text-secondary)]">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function CameraViewPage() {
   const { cameraId } = useParams();
 
-  const camera = mockCameras.find((item) => item.id === cameraId);
+  const [camera, setCamera] = useState<Camera | null>(null);
+  const [stream, setStream] = useState<CameraStream | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!camera) {
+  useEffect(() => {
+    if (!cameraId) {
+      setError('ID камеры не указан');
+      setIsLoading(false);
+      return;
+    }
+  
+    const currentCameraId = cameraId;
+  
+    let isActive = true;
+    const abortController = new AbortController();
+  
+    async function loadCameraStream() {
+      try {
+        setIsLoading(true);
+        setError(null);
+      
+        const data = await getCameraStreamByCameraId(
+          currentCameraId,
+          abortController.signal,
+        );
+      
+        if (!isActive) {
+          return;
+        }
+      
+        setCamera(data.camera);
+        setStream(data.stream);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+      
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Не удалось загрузить камеру';
+      
+        setError(message);
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    }
+  
+    loadCameraStream();
+  
+    return () => {
+      isActive = false;
+      abortController.abort();
+    };
+  }, [cameraId]);
+
+  if (isLoading) {
+    return (
+      <section className="min-h-screen px-4 py-24 md:px-8 md:py-28">
+        <div className="mx-auto max-w-7xl">
+          <div className="rounded-[36px] border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-2xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
+            <p className="font-inter text-sm font-semibold text-[var(--color-text-secondary)]">
+              Загружаем камеру и поток...
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error || !camera) {
     return (
       <section className="flex min-h-screen items-center justify-center px-4 py-20">
         <div className="max-w-md rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center shadow-2xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
           <p className="text-sm font-bold uppercase tracking-wide text-[var(--color-primary)]">
-            Камера не найдена
+            Камера недоступна
           </p>
 
           <h1 className="mt-3 text-3xl font-extrabold text-[var(--color-text-primary)]">
-            Такой камеры нет
+            Не удалось открыть камеру
           </h1>
 
           <p className="mt-3 font-inter text-sm leading-6 text-[var(--color-text-secondary)]">
-            Возможно, камера была удалена или ссылка указана неверно.
+            {error ||
+              'Возможно, камера была удалена или ссылка указана неверно.'}
           </p>
 
           <Link
@@ -106,28 +237,29 @@ export function CameraViewPage() {
               </h1>
 
               <p className="mt-4 max-w-2xl font-inter text-base leading-7 text-[var(--color-text-secondary)]">
-                {camera.description ||
-                  'Онлайн-камера с видом на городскую локацию. Смотрите трансляцию и изучайте место в реальном времени.'}
+                {camera.description}
               </p>
             </div>
 
-            <span
-              className={[
-                'inline-flex w-fit rounded-full px-4 py-2 text-sm font-bold ring-1',
-                getStatusClassName(camera.status),
-              ].join(' ')}
-            >
-              {getStatusLabel(camera.status)}
-            </span>
+            <div className="flex flex-wrap gap-2">
+              <span
+                className={[
+                  'inline-flex w-fit rounded-full px-4 py-2 text-sm font-bold ring-1',
+                  getStatusClassName(camera.status),
+                ].join(' ')}
+              >
+                {getStatusLabel(camera.status)}
+              </span>
+
+              <span className="inline-flex w-fit rounded-full bg-[var(--color-surface)] px-4 py-2 text-sm font-bold text-[var(--color-text-secondary)] ring-1 ring-[var(--color-border)]">
+                {getCategoryLabel(camera.category)}
+              </span>
+            </div>
           </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-          <CameraPlayer
-            src={camera.streamUrl}
-            poster={camera.previewUrl}
-            title={camera.title}
-          />
+          <CameraPlayer stream={stream} title={camera.title} />
 
           <aside className="space-y-4">
             <div className="rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
@@ -136,35 +268,29 @@ export function CameraViewPage() {
               </h2>
 
               <div className="mt-5 space-y-3">
-                <div className="flex items-start gap-3 rounded-2xl bg-[var(--color-bg-soft)] p-4">
-                  <span className="mt-0.5 text-[var(--color-primary)]">
-                    <CameraIcon />
-                  </span>
+                <InfoCard
+                  icon={<CameraIcon />}
+                  label="Тип камеры"
+                  value="IP-камера"
+                />
 
-                  <div>
-                    <p className="text-sm font-bold text-[var(--color-text-primary)]">
-                      Тип камеры
-                    </p>
-                    <p className="mt-1 font-inter text-sm text-[var(--color-text-secondary)]">
-                      IP-камера
-                    </p>
-                  </div>
-                </div>
+                <InfoCard
+                  icon={<MapPinIcon />}
+                  label="Адрес"
+                  value={`${camera.city}, ${camera.address}`}
+                />
 
-                <div className="flex items-start gap-3 rounded-2xl bg-[var(--color-bg-soft)] p-4">
-                  <span className="mt-0.5 text-[var(--color-primary)]">
-                    <MapPinIcon />
-                  </span>
+                <InfoCard
+                  icon={<MapPinIcon />}
+                  label="Координаты"
+                  value={`${camera.latitude.toFixed(4)}, ${camera.longitude.toFixed(4)}`}
+                />
 
-                  <div>
-                    <p className="text-sm font-bold text-[var(--color-text-primary)]">
-                      Координаты
-                    </p>
-                    <p className="mt-1 font-inter text-sm text-[var(--color-text-secondary)]">
-                      {camera.latitude.toFixed(4)}, {camera.longitude.toFixed(4)}
-                    </p>
-                  </div>
-                </div>
+                <InfoCard
+                  icon={<StreamIcon />}
+                  label="Поток"
+                  value={stream ? `${stream.type.toUpperCase()} · ${stream.path}` : 'Недоступен'}
+                />
               </div>
             </div>
 
@@ -178,6 +304,12 @@ export function CameraViewPage() {
                   'Описание камеры пока не добавлено. Позже здесь будет информация о ракурсе, месте установки, доступности потока и связанных экскурсиях.'}
               </p>
 
+              <Link
+                to="/map"
+                className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface-solid)] px-5 text-sm font-bold text-[var(--color-text-primary)] transition hover:scale-[1.01] hover:text-[var(--color-primary)]"
+              >
+                Показать на карте
+              </Link>
             </div>
           </aside>
         </div>

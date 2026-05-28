@@ -1,16 +1,14 @@
-import { useEffect, useRef } from 'react';
-import Hls from 'hls.js';
+import type { CameraStream } from '../../../entities/stream/model/types';
 
 type CameraPlayerProps = {
-  src?: string;
-  poster?: string;
+  stream?: CameraStream | null;
   title: string;
 };
 
 function CameraPlaceholderIcon() {
   return (
     <svg
-      className="h-12 w-12 text-[var(--color-secondary-text)]"
+      className="h-12 w-12 text-[var(--color-primary-text)]"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -26,42 +24,11 @@ function CameraPlaceholderIcon() {
   );
 }
 
-export function CameraPlayer({ src, poster, title }: CameraPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  useEffect(() => {
-    const video = videoRef.current;
-
-    if (!video || !src) {
-      return;
-    }
-
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = src;
-      return;
-    }
-
-    if (!Hls.isSupported()) {
-      return;
-    }
-
-    const hls = new Hls({
-      enableWorker: true,
-      lowLatencyMode: true,
-    });
-
-    hls.loadSource(src);
-    hls.attachMedia(video);
-
-    return () => {
-      hls.destroy();
-    };
-  }, [src]);
-
-  if (!src) {
+export function CameraPlayer({ stream, title }: CameraPlayerProps) {
+  if (!stream?.playerUrl) {
     return (
       <div className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
-        <div className="flex flex-col items-center text-center">
+        <div className="flex flex-col items-center px-6 text-center">
           <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[var(--color-primary)] shadow-lg">
             <CameraPlaceholderIcon />
           </div>
@@ -71,7 +38,7 @@ export function CameraPlayer({ src, poster, title }: CameraPlayerProps) {
           </p>
 
           <p className="mt-2 max-w-sm font-inter text-sm leading-6 text-[var(--color-text-secondary)]">
-            Позже здесь будет live-трансляция с выбранной IP-камеры.
+            Не удалось получить ссылку на трансляцию камеры.
           </p>
         </div>
       </div>
@@ -80,14 +47,15 @@ export function CameraPlayer({ src, poster, title }: CameraPlayerProps) {
 
   return (
     <div className="overflow-hidden rounded-[32px] border border-[var(--color-border)] bg-black shadow-2xl shadow-[var(--color-shadow)]">
-      <video
-        ref={videoRef}
-        controls
-        playsInline
-        poster={poster}
-        className="aspect-video w-full bg-black object-cover"
-        aria-label={title}
-      />
+      <div className="relative aspect-video w-full bg-black">
+        <iframe
+          src={stream.playerUrl}
+          title={title}
+          className="absolute inset-0 h-full w-full border-0"
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
     </div>
   );
 }
