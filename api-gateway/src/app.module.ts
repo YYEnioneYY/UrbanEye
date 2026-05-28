@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module';
 import { KafkaModule } from './kafka/kafka.module';
 import { UsersModule } from './users/users.module';
 import { GeoModule } from './geo/geo.module';
+import { CameraStreamModule } from './camera-stream/camera-stream.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { GeoModule } from './geo/geo.module';
     AuthModule,
     UsersModule,
     GeoModule,
+    CameraStreamModule,
   ],
 })
 export class AppModule {}

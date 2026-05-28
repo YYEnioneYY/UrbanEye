@@ -14,6 +14,7 @@ import { AUTH_SERVICE } from './kafka.constants';
 @Injectable()
 export class KafkaClientService implements OnModuleInit, OnModuleDestroy {
   private readonly topics = [
+    /* AuthService */
     'auth.register',
     'auth.login',
     'auth.refresh',
@@ -21,7 +22,15 @@ export class KafkaClientService implements OnModuleInit, OnModuleDestroy {
     'auth.forgot-password',
     'auth.reset-password',
     'user.get-by-id',
+
+    /* GeoService */
     'geo.me',
+
+    /* StreamService */
+    'cameras.find_all',
+    'cameras.find_by_id',
+    'streams.get_by_camera_id',
+    'streams.get_status_by_camera_id',
   ];
 
   constructor(
