@@ -1,16 +1,87 @@
 [
   {
-    "id": "camera-1",
-    "title": "Тестовая камера",
-    "path": "camera_1",
-    "rtspUrl": "rtsp://user:password@192.168.1.50:554/Streaming/Channels/101",
+    "id": "b4c606c0-5f8a-4d4c-93c3-90e040f7f6fb",
+    "title": "Дворцовая площадь",
+    "slug": "palace-square",
+    "description": "Камера с видом на Дворцовую площадь и исторический центр Санкт-Петербурга.",
+    "city": "Санкт-Петербург",
+    "address": "Дворцовая площадь",
+    "category": "landmark",
+    "status": "active",
+    "coordinates": {
+      "lat": 59.9398,
+      "lng": 30.3146
+    },
+    "path": "spb_palace_square",
+    "rtspUrl": "rtsp://user:password@192.168.1.101:554/Streaming/Channels/101",
     "enabled": true
   },
   {
-    "id": "camera-2",
-    "title": "Камера у площади",
-    "path": "camera_2",
-    "rtspUrl": "rtsp://user:password@192.168.1.51:554/Streaming/Channels/101",
+    "id": "e4f4a1a1-0d4a-4e54-b134-658466173944",
+    "title": "Исаакиевский собор",
+    "slug": "saint-isaacs-cathedral",
+    "description": "Камера рядом с Исаакиевской площадью и видом на Исаакиевский собор.",
+    "city": "Санкт-Петербург",
+    "address": "Исаакиевская площадь",
+    "category": "landmark",
+    "status": "active",
+    "coordinates": {
+      "lat": 59.9343,
+      "lng": 30.3061
+    },
+    "path": "spb_isaac_cathedral",
+    "rtspUrl": "rtsp://user:password@192.168.1.102:554/Streaming/Channels/101",
+    "enabled": true
+  },
+  {
+    "id": "2a3a8d9f-d32a-4fb3-8a40-42152f5acb51",
+    "title": "Петропавловская крепость",
+    "slug": "peter-and-paul-fortress",
+    "description": "Камера с видом на район Петропавловской крепости и акваторию Невы.",
+    "city": "Санкт-Петербург",
+    "address": "Петропавловская крепость",
+    "category": "history",
+    "status": "active",
+    "coordinates": {
+      "lat": 59.95,
+      "lng": 30.3163
+    },
+    "path": "spb_peter_paul_fortress",
+    "rtspUrl": "rtsp://user:password@192.168.1.103:554/Streaming/Channels/101",
+    "enabled": true
+  },
+  {
+    "id": "8a59ec04-3358-45f2-917a-f7f3830e4c61",
+    "title": "Лахта Центр",
+    "slug": "lakhta-center",
+    "description": "Камера с видом на современный деловой район и Лахта Центр.",
+    "city": "Санкт-Петербург",
+    "address": "Лахтинский проспект",
+    "category": "modern",
+    "status": "active",
+    "coordinates": {
+      "lat": 59.9871,
+      "lng": 30.1779
+    },
+    "path": "spb_lakhta_center",
+    "rtspUrl": "rtsp://user:password@192.168.1.104:554/Streaming/Channels/101",
+    "enabled": true
+  },
+  {
+    "id": "f3c1398a-5f9f-4d36-8e59-c5b22726d61d",
+    "title": "Казанский собор",
+    "slug": "kazan-cathedral",
+    "description": "Камера в районе Невского проспекта рядом с Казанским собором.",
+    "city": "Санкт-Петербург",
+    "address": "Казанская площадь",
+    "category": "landmark",
+    "status": "active",
+    "coordinates": {
+      "lat": 59.9342,
+      "lng": 30.3242
+    },
+    "path": "spb_kazan_cathedral",
+    "rtspUrl": "rtsp://user:password@192.168.1.105:554/Streaming/Channels/101",
     "enabled": true
   }
 ]

@@ -1,38 +1,46 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { toPublicCamera } from '../cameras/camera.mapper';
+import { CamerasRepository } from '../cameras/cameras.repository';
 import { MediaServerClient } from './media-server.client';
-import { CamerasRepository } from './cameras.repository';
 
 @Injectable()
 export class StreamsService {
   constructor(
     private readonly configService: ConfigService,
-    private readonly mediaServerClient: MediaServerClient,
     private readonly camerasRepository: CamerasRepository,
+    private readonly mediaServerClient: MediaServerClient,
   ) {}
 
-  async getStream(cameraId: string) {
+  async getStreamByCameraId(cameraId: string) {
     const camera = await this.camerasRepository.findById(cameraId);
 
     if (!camera) {
       throw new NotFoundException(`Camera ${cameraId} not found`);
     }
 
+    await this.mediaServerClient.registerRtspPath(camera.path, camera.rtspUrl);
+
     const publicWebrtcUrl = this.configService.getOrThrow<string>(
       'MEDIAMTX_WEBRTC_PUBLIC_URL',
     );
 
     return {
-      cameraId: camera.id,
-      title: camera.title,
-      path: camera.path,
-      playerUrl: `${publicWebrtcUrl}/${camera.path}`,
-      whepUrl: `${publicWebrtcUrl}/${camera.path}/whep`,
-      type: 'webrtc',
+      camera: toPublicCamera(camera),
+      stream: {
+        type: 'webrtc',
+        path: camera.path,
+
+        // Для быстрого iframe-плеера.
+        playerUrl: `${publicWebrtcUrl}/${camera.path}`,
+
+        // Для кастомного WebRTC-плеера.
+        whepUrl: `${publicWebrtcUrl}/${camera.path}/whep`,
+      },
     };
   }
 
-  async getStatus(cameraId: string) {
+  async getStatusByCameraId(cameraId: string) {
     const camera = await this.camerasRepository.findById(cameraId);
 
     if (!camera) {
@@ -47,8 +55,8 @@ export class StreamsService {
     return {
       cameraId: camera.id,
       path: camera.path,
-      configured: true,
-      online: Boolean(pathInfo?.ready ?? pathInfo?.available ?? pathInfo?.online),
+      configured: Boolean(pathInfo),
+      online: Boolean(pathInfo?.ready ?? pathInfo?.available ?? false),
       mediaServerPath: pathInfo ?? null,
     };
   }

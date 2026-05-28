@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { CamerasRepository } from './cameras.repository';
+import { CamerasRepository } from '../cameras/cameras.repository';
 import { MediaServerClient } from './media-server.client';
 
 @Injectable()
@@ -17,7 +17,13 @@ export class StreamsBootstrap implements OnApplicationBootstrap {
     this.logger.log(`Found ${cameras.length} cameras in local config`);
 
     for (const camera of cameras) {
-      await this.registerCameraWithRetry(camera.path, camera.rtspUrl);
+      try {
+        await this.registerCameraWithRetry(camera.path, camera.rtspUrl);
+      } catch (error) {
+        this.logger.error(
+          `Cannot register stream path "${camera.path}" after retries`,
+        );
+      }
     }
   }
 
@@ -28,16 +34,14 @@ export class StreamsBootstrap implements OnApplicationBootstrap {
   ): Promise<void> {
     try {
       await this.mediaServerClient.registerRtspPath(path, rtspUrl);
-
       this.logger.log(`Registered stream path: ${path}`);
     } catch (error) {
-      if (attempt >= 10) {
-        this.logger.error(`Failed to register stream path: ${path}`);
+      if (attempt >= 20) {
         throw error;
       }
 
       this.logger.warn(
-        `MediaMTX is not ready. Retry ${attempt}/10 for path: ${path}`,
+        `MediaMTX is not ready. Retry ${attempt}/20 for path: ${path}`,
       );
 
       await this.sleep(1000);

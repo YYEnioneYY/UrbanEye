@@ -1,20 +1,9 @@
-api: yes
-apiAddress: :9997
-
-rtsp: yes
-rtspAddress: :8554
-rtspTransports: [tcp]
-
-webrtc: yes
-webrtcAddress: :8889
-webrtcLocalUDPAddress: :8189
-webrtcAdditionalHosts: [localhost]
+logLevel: info
 
 authMethod: internal
 
 authInternalUsers:
-  # Публичный доступ на чтение потоков.
-  # Нужен, чтобы браузер мог открыть WebRTC-поток без логина/пароля.
+  # Анонимный пользователь для чтения публичных WebRTC-потоков.
   - user: any
     pass:
     ips: []
@@ -24,7 +13,7 @@ authInternalUsers:
       - action: playback
         path:
 
-  # Доступ для нашего NestJS Stream Service к Control API MediaMTX.
+  # Пользователь для NestJS Stream Service.
   - user: stream_service
     pass: stream_service_password
     ips: []
@@ -32,6 +21,24 @@ authInternalUsers:
       - action: api
       - action: metrics
       - action: pprof
+
+api: yes
+apiAddress: :9997
+
+metrics: yes
+metricsAddress: :9998
+
+rtsp: yes
+rtspAddress: :8554
+rtspTransports: [tcp]
+
+webrtc: yes
+webrtcAddress: :8889
+webrtcLocalUDPAddress: :8189
+
+# Для локальной разработки.
+# На сервере сюда нужно будет добавить внешний домен/IP.
+webrtcAdditionalHosts: [localhost]
 
 pathDefaults:
   sourceOnDemand: yes
