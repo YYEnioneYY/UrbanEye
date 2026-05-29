@@ -6,9 +6,9 @@
 ### Интерактивная карта публичных IP-камер с live-видеопотоками в браузере
 
 <p>
-  <img src="https://img.shields.io/badge/Frontend-React%20%2F%20Next.js-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
-  <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
-  <img src="https://img.shields.io/badge/Database-PostGIS-336791?style=for-the-badge&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
+  <img src="https://img.shields.io/badge/Backend-FastAPI%20%26%20NestJS-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
+  <img src="https://img.shields.io/badge/Database-PostgreSQL%20%26%20PostGIS-336791?style=for-the-badge&logo=postgresql&logoColor=white" />
   <img src="https://img.shields.io/badge/Streaming-WebRTC%20%2F%20HLS-FF6B00?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Media-MediaMTX-222222?style=for-the-badge" />
 </p>
@@ -68,10 +68,10 @@ React Map UI
 | **Frontend** | Карта, маркеры, карточки камер, видеоплеер |
 | **Auth** | Пользователи, роли, JWT, права доступа |
 | **Camera Service** | Камеры, координаты, статусы, категории, bbox-запросы |
-| **Stream Service** | Playback-сессии, временные ссылки, выбор WebRTC/HLS |
+| **Stream Service** | Получение RTSP-потока и отдача WebRTC/HLS в браузер |
 | **Probe Worker** | Проверка камер, snapshot, online/offline-статусы |
-| **Media Gateway** | Получение RTSP-потока и отдача WebRTC/HLS в браузер |
-| **Admin** | Управление камерами, просмотр ошибок, модерация |
+| **Geo Service** | Первичное приближение на интерактивной карте на локацию пользователя |
+| **Api-Gateway** | Единая точка входа для всех клиентских запросов |
 
 ---
 
@@ -79,9 +79,9 @@ React Map UI
 
 ### Frontend
 
-- React / Next.js / Vite
+- React & Vite
 - TypeScript
-- Leaflet или MapLibre
+- Leaflet
 - hls.js
 - WebRTC player
 - Tailwind CSS
@@ -110,6 +110,7 @@ React Map UI
 - Prometheus
 - Grafana
 - S3 / MinIO для preview и записей
+- K8S
 
 ---
 
@@ -123,8 +124,7 @@ React Map UI
 6. Пользователь нажимает **Смотреть**.
 7. Backend проверяет права доступа.
 8. Stream Service создает временный playback URL.
-9. Media Gateway подключается к IP-камере.
-10. Браузер открывает live-видеопоток через WebRTC или HLS.
+9. Браузер открывает live-видеопоток через WebRTC или HLS.
 
 ---
 
