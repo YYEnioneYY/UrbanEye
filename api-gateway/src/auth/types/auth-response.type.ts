@@ -1,6 +1,7 @@
 export type PublicUser = {
   id: string;
   email: string;
+  role: 'user' | 'admin';
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

@@ -31,6 +31,9 @@ export class KafkaClientService implements OnModuleInit, OnModuleDestroy {
     'cameras.find_by_id',
     'streams.get_by_camera_id',
     'streams.get_status_by_camera_id',
+
+    /* Admin Services Status */
+    'auth.service.status',
   ];
 
   constructor(
