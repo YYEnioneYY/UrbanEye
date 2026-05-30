@@ -1,8 +1,9 @@
-import { Prisma } from '../generated/prisma/client';
+import { Prisma } from '@prisma/client';
 
 export const publicUserSelect = {
   id: true,
   email: true,
+  role: true,
   createdAt: true,
   updatedAt: true,
   deletedAt: true,

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { RpcException } from '@nestjs/microservices';
-import { Prisma } from '../generated/prisma/client';
+import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -83,6 +83,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        role: true,
         passwordHash: true,
         createdAt: true,
         updatedAt: true,
@@ -106,6 +107,7 @@ export class AuthService {
     const publicUser: PublicUser = {
       id: user.id,
       email: user.email,
+      role: user.role,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       deletedAt: user.deletedAt,
@@ -316,6 +318,7 @@ export class AuthService {
     const payload: AccessTokenPayload = {
       sub: user.id,
       email: user.email,
+      role: user.role,
       type: 'access',
     };
 

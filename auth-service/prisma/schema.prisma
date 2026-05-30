@@ -11,6 +11,8 @@ model User {
   email        String    @unique
   passwordHash String    @map("password_hash")
 
+  role UserRole @default(user)
+
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
@@ -19,6 +21,13 @@ model User {
   passwordResetTokens PasswordResetToken[]
 
   @@map("users")
+}
+
+enum UserRole {
+  user
+  admin
+
+  @@map("user_role")
 }
 
 model RefreshSession {
