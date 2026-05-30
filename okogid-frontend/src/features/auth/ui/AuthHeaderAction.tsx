@@ -45,6 +45,24 @@ function LogoutIcon() {
   );
 }
 
+function AdminIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3 5 6v5c0 5 3.5 8.5 7 10 3.5-1.5 7-5 7-10V6l-7-3Z" />
+      <path d="M9.5 12.5 11 14l3.5-4" />
+    </svg>
+  );
+}
+
 export function AuthHeaderAction() {
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -53,6 +71,8 @@ export function AuthHeaderAction() {
   const { logout, isLoading } = useLogout({
     redirectTo: '/',
   });
+
+  const isAdmin = user?.role === 'admin';
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -150,6 +170,17 @@ export function AuthHeaderAction() {
           >
             Открыть профиль
           </Link>
+
+          {isAdmin && (
+            <Link
+              to="/admin-dashboard"
+              onClick={() => setIsOpen(false)}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-[18px] border border-[var(--color-primary)] bg-[var(--color-primary)] px-4 py-3 text-sm font-bold text-[var(--color-secondary-text)] transition hover:scale-[1.01]"
+            >
+              <AdminIcon />
+              Админ панель
+            </Link>
+          )}
 
           <button
             type="button"

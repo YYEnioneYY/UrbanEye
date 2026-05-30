@@ -19,6 +19,11 @@ import { CameraViewLayout } from '../../widgets/layouts/camera-view-layout/ui/Ca
 import { AuthLayout } from '../../widgets/layouts/auth-layout/ui/AuthLayout';
 import { ProfileLayout } from '../../widgets/layouts/profile-layout/ui/ProfileLayout';
 
+/* Admin */
+import { AdminPage } from '../../pages/admin/ui/AdminPage';
+import { RequireAdmin } from '../../features/auth/ui/RequireAdmin';
+import { AdminLayout } from '../../widgets/layouts/admin-layout/ui/AdminLayout';
+
 export function AppRouter() {
   return (
     <Routes>
@@ -45,6 +50,12 @@ export function AppRouter() {
 
       <Route element={<ProfileLayout />}>
         <Route path="/profile" element={<ProfilePage />} />
+      </Route>
+
+      <Route element={<RequireAdmin />}>
+        <Route element={<AdminLayout />}>
+          <Route path="/admin-dashboard" element={<AdminPage />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
