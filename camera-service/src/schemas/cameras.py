@@ -120,6 +120,44 @@ class CameraStatusHistoryResponse(CameraStatusHistoryBaseSchema):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+#----------------------------------------------------------------------------------CameraCredentials--------------------------------------------------------------------------------------
+class CameraCredentialsBaseSchema(BaseModel):
+    camera_id: uuid.UUID
+
+    username_encrypted: str | None = None
+    password_encrypted: str | None = None
+
+    onvif_username_encrypted: str | None = None
+    onvif_password_encrypted: str | None = None
+
+    encryption_key_id: str | None = None
+
+
+class CameraCredentialsCreateSchema(CameraCredentialsBaseSchema):
+    pass
+
+
+class CameraCredentialsUpdateSchema(BaseModel):
+    username_encrypted: str | None = None
+    password_encrypted: str | None = None
+
+    onvif_username_encrypted: str | None = None
+    onvif_password_encrypted: str | None = None
+
+    encryption_key_id: str | None = None
+
+    rotated_at: datetime | None = None
+
+
+class CameraCredentialsResponseSchema(BaseModel):
+    username_encrypted: str | None = None
+    password_encrypted: str | None = None
+
+    onvif_username_encrypted: str | None = None
+    onvif_password_encrypted: str | None = None
+    model_config = ConfigDict(from_attributes=True)
+    
+    
 #----------------------------------------------------------------------------CameraStreamConfig-----------------------------------------------------------------------------------
 class CameraStreamConfigBaseSchema(BaseModel):
     camera_id: uuid.UUID
@@ -170,44 +208,6 @@ class CameraStreamConfigUpdateSchema(BaseModel):
 class CameraStreamConfigResponseSchema(CameraStreamConfigBaseSchema):
     
     model_config = ConfigDict(from_attributes=True)
-    
-#----------------------------------------------------------------------------------CameraCredentials--------------------------------------------------------------------------------------
-class CameraCredentialsBaseSchema(BaseModel):
-    camera_id: uuid.UUID
-
-    username_encrypted: str | None = None
-    password_encrypted: str | None = None
-
-    onvif_username_encrypted: str | None = None
-    onvif_password_encrypted: str | None = None
-
-    encryption_key_id: str | None = None
-
-
-class CameraCredentialsCreateSchema(CameraCredentialsBaseSchema):
-    pass
-
-
-class CameraCredentialsUpdateSchema(BaseModel):
-    username_encrypted: str | None = None
-    password_encrypted: str | None = None
-
-    onvif_username_encrypted: str | None = None
-    onvif_password_encrypted: str | None = None
-
-    encryption_key_id: str | None = None
-
-    rotated_at: datetime | None = None
-
-
-class CameraCredentialsResponseSchema(BaseModel):
-    username_encrypted: str | None = None
-    password_encrypted: str | None = None
-
-    onvif_username_encrypted: str | None = None
-    onvif_password_encrypted: str | None = None
-    model_config = ConfigDict(from_attributes=True)
-    
     
 
 class CameraListResponseSchema(BaseModel):
