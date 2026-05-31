@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PublicUser, publicUserSelect } from './user.select';
+import { FindUsersDto } from './dto/find-users.dto';
 
 @Injectable()
 export class UserService {
@@ -84,5 +85,51 @@ export class UserService {
     }
 
     return user;
+  }
+
+  async findAllUsers(dto: FindUsersDto) {
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    
+    const where: Prisma.UserWhereInput = {
+      ...(dto.includeDeleted ? {} : { deletedAt: null }),
+      ...(dto.search
+        ? {
+            email: {
+              contains: dto.search.toLowerCase().trim(),
+              mode: Prisma.QueryMode.insensitive,
+            },
+          }
+        : {}),
+    };
+  
+    const [users, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        select: publicUserSelect,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+    
+      this.prisma.user.count({
+        where,
+      }),
+    ]);
+  
+    return {
+      data: users,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    };
   }
 }
