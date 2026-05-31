@@ -22,6 +22,7 @@ export class KafkaClientService implements OnModuleInit, OnModuleDestroy {
     'auth.forgot-password',
     'auth.reset-password',
     'user.get-by-id',
+    'users.find_all',
 
     /* GeoService */
     'geo.me',
