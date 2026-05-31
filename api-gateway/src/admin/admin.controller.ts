@@ -6,11 +6,16 @@ import { AuthServiceStatusDto } from './dto/auth-service-status.dto';
 import { Query } from '@nestjs/common';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { UsersListResponseDto } from './dto/users-list-response.dto';
+import { ApiGatewayStatusDto } from './dto/api-gateway-status.dto';
+import { GatewayStatusService } from './gateway-status.service';
 
 @ApiTags('Admin')
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly gatewayStatusService: GatewayStatusService,
+  ) {}
 
   @Get('services/auth/status')
   @Auth('admin')
@@ -30,5 +35,15 @@ export class AdminController {
   @ApiOkResponse({ type: UsersListResponseDto })
   getUsers(@Query() query: FindUsersQueryDto) {
     return this.adminService.getUsers(query);
+  }
+
+  @Get('services/api-gateway/status')
+  @Auth('admin')
+  @ApiOperation({
+    summary: 'Получить статус и базовую нагрузку api-gateway',
+  })
+  @ApiOkResponse({ type: ApiGatewayStatusDto })
+  getApiGatewayStatus() {
+    return this.gatewayStatusService.getStatus();
   }
 }
