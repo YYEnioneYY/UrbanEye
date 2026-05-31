@@ -224,7 +224,7 @@ function ServiceStatusCard({ result }: { result: ServiceStatusResult }) {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-[var(--color-primary-text)]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-[var(--color-secondary-text)]">
               <ServerIcon />
             </div>
 

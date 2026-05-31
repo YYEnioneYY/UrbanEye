@@ -12,6 +12,7 @@ import {
   MAP_CONFIG,
   MAP_STYLES,
   getCurrentMapStyle,
+  type MapBaseMode,
 } from '../../../shared/config/map';
 import { MAP_EVENTS } from '../../../shared/config/mapEvents';
 
@@ -21,6 +22,7 @@ import { createUserLocationMarkerElement } from '../lib/createUserLocationMarker
 import { getBrowserGeoLocation } from '../lib/getBrowserGeoLocation';
 
 import { CameraDetailsPanel } from './CameraDetailsPanel';
+import { MapBaseModeSwitcher } from './MapBaseModeSwitcher';
 
 export function CameraMap() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -29,9 +31,34 @@ export function CameraMap() {
   const cameraMarkersRef = useRef<maplibregl.Marker[]>([]);
   const userLocationMarkerRef = useRef<maplibregl.Marker | null>(null);
 
+  const mapBaseModeRef = useRef<MapBaseMode>('default');
+
+  const [mapBaseMode, setMapBaseMode] = useState<MapBaseMode>('default');
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
   const [isCamerasLoading, setIsCamerasLoading] = useState(true);
   const [camerasError, setCamerasError] = useState<string | null>(null);
+
+  const handleMapBaseModeChange = (nextMode: MapBaseMode) => {
+    if (mapBaseModeRef.current === nextMode) {
+      return;
+    }
+
+    setMapBaseMode(nextMode);
+    mapBaseModeRef.current = nextMode;
+
+    const map = mapRef.current;
+
+    if (!map) {
+      return;
+    }
+
+    if (nextMode === 'satellite') {
+      map.setStyle(MAP_STYLES.satellite);
+      return;
+    }
+
+    map.setStyle(getCurrentMapStyle('default'));
+  };
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) {
@@ -43,7 +70,7 @@ export function CameraMap() {
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: getCurrentMapStyle(),
+      style: getCurrentMapStyle('default'),
       center: MAP_CONFIG.fallbackCenter,
       zoom: MAP_CONFIG.fallbackZoom,
       attributionControl: false,
@@ -154,13 +181,17 @@ export function CameraMap() {
         resolvedTheme: 'light' | 'dark';
       }>;
 
+      if (mapBaseModeRef.current === 'satellite') {
+        return;
+      }
+
       map.setStyle(MAP_STYLES[themeEvent.detail.resolvedTheme]);
     };
 
     window.addEventListener(MAP_EVENTS.findMe, handleFindMe);
     window.addEventListener('okogid-theme-change', handleThemeChange);
 
-    map.on('load', async () => {
+    map.once('load', async () => {
       try {
         const geo = await getMyGeoLocation(abortController.signal);
 
@@ -245,6 +276,11 @@ export function CameraMap() {
           {camerasError}
         </div>
       )}
+
+      <MapBaseModeSwitcher
+        value={mapBaseMode}
+        onChange={handleMapBaseModeChange}
+      />
 
       <CameraDetailsPanel
         camera={selectedCamera}

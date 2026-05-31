@@ -9,7 +9,10 @@ import {
 export const MAP_STYLES = {
   light: '/map/styles/okogid-light.json',
   dark: '/map/styles/okogid-dark.json',
+  satellite: '/map/styles/okogid-satellite.json',
 } as const;
+
+export type MapBaseMode = 'default' | 'satellite';
 
 export const DEFAULT_MAP_LOCATION = {
   city: 'Санкт-Петербург',
@@ -37,6 +40,10 @@ export function getCurrentMapTheme(): ResolvedTheme {
   return resolveThemeMode(getSavedThemeMode());
 }
 
-export function getCurrentMapStyle() {
+export function getCurrentMapStyle(baseMode: MapBaseMode = 'default') {
+  if (baseMode === 'satellite') {
+    return MAP_STYLES.satellite;
+  }
+
   return MAP_STYLES[getCurrentMapTheme()];
 }

@@ -11,6 +11,12 @@ export type AdminServiceStatusConfig = {
 
 export const adminServiceStatusConfigs: AdminServiceStatusConfig[] = [
   {
+    id: 'api-gateway',
+    title: 'Api-Gateway',
+    description: 'Единая точка входа для всех клиентских запросов',
+    endpoint: '/admin/services/api-gateway/status',
+  },
+  {
     id: 'auth',
     title: 'Auth Service',
     description: 'Авторизация, регистрация, refresh/logout и роли пользователей.',

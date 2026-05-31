@@ -1,5 +1,8 @@
+import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 
+import { forgotPassword } from '../../../features/auth/api/passwordRecoveryApi';
+import { validateEmail } from '../../../features/auth/lib/authValidation';
 import { AuthInput } from '../../../widgets/Auth/ui/AuthInput';
 
 function MailIcon() {
@@ -39,6 +42,47 @@ function ArrowLeftIcon() {
 }
 
 export function ForgotPasswordPage() {
+  const [email, setEmail] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    setError(null);
+    setSuccessMessage(null);
+
+    const emailError = validateEmail(email);
+
+    if (emailError) {
+      setError(emailError);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const response = await forgotPassword({
+        email,
+      });
+
+      setSuccessMessage(
+        response.message ||
+          'Если такой email зарегистрирован, мы отправили ссылку для восстановления пароля.',
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Не удалось отправить письмо для восстановления пароля.';
+
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="rounded-[30px] border border-[var(--color-border)] bg-[var(--color-auth-card-bg)] p-6 shadow-[0_24px_80px_rgba(15,19,24,0.12)] backdrop-blur-2xl sm:p-8">
       <Link
@@ -62,18 +106,34 @@ export function ForgotPasswordPage() {
         </p>
       </div>
 
-      <form className="mt-8 space-y-5">
+      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
         <AuthInput
           icon={<MailIcon />}
           type="email"
           placeholder="Введите email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          autoComplete="email"
         />
+
+        {error && (
+          <div className="rounded-[18px] border border-red-500/20 bg-red-500/10 px-4 py-3 font-inter text-[12px] font-medium text-red-600">
+            {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="rounded-[18px] border border-green-500/20 bg-green-500/10 px-4 py-3 font-inter text-[12px] font-medium text-green-600">
+            {successMessage}
+          </div>
+        )}
 
         <button
           type="submit"
-          className="mt-2 h-13 w-full rounded-[18px] bg-[var(--button-third-bg)] text-[16px] font-semibold text-[var(--button-third-text)] shadow-sm transition hover:scale-[1.01] hover:bg-[var(--button-third-hover)]"
+          disabled={isLoading}
+          className="mt-2 h-13 w-full rounded-[18px] bg-[var(--button-third-bg)] text-[16px] font-semibold text-[var(--button-third-text)] shadow-sm transition hover:scale-[1.01] hover:bg-[var(--button-third-hover)] disabled:cursor-wait disabled:opacity-70 disabled:hover:scale-100"
         >
-          Отправить ссылку
+          {isLoading ? 'Отправляем...' : 'Отправить ссылку'}
         </button>
       </form>
 
