@@ -23,6 +23,7 @@ import { ProfileLayout } from '../../widgets/layouts/profile-layout/ui/ProfileLa
 import { AdminPage } from '../../pages/admin/ui/AdminPage';
 import { RequireAdmin } from '../../features/auth/ui/RequireAdmin';
 import { AdminLayout } from '../../widgets/layouts/admin-layout/ui/AdminLayout';
+import { AdminUsersPage } from '../../pages/admin-users/ui/AdminUsersPage';
 import { AdminPlaceholderPage } from '../../pages/admin/ui/AdminPlaceholderPage';
 
 export function AppRouter() {
@@ -56,9 +57,9 @@ export function AppRouter() {
       <Route element={<RequireAdmin />}>
         <Route path="/admin-dashboard" element={<AdminLayout />}>
           <Route index element={<AdminPage />} />
-        
+
           <Route
-            path="cameras/new"
+            path="cameras-add"
             element={
               <AdminPlaceholderPage
                 title="Добавить камеру"
@@ -66,7 +67,7 @@ export function AppRouter() {
               />
             }
           />
-      
+
           <Route
             path="cameras"
             element={
@@ -76,17 +77,9 @@ export function AppRouter() {
               />
             }
           />
-      
-          <Route
-            path="users"
-            element={
-              <AdminPlaceholderPage
-                title="Пользователи"
-                description="Список пользователей, роли, статусы аккаунтов и управление доступом."
-              />
-            }
-          />
-      
+
+          <Route path="users" element={<AdminUsersPage />} />
+
           <Route
             path="statistics"
             element={
@@ -96,7 +89,7 @@ export function AppRouter() {
               />
             }
           />
-      
+
           <Route
             path="services"
             element={
@@ -106,7 +99,7 @@ export function AppRouter() {
               />
             }
           />
-      
+
           <Route
             path="settings"
             element={
