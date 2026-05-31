@@ -189,10 +189,6 @@ export function AdminUsersPage() {
             <h1 className="text-4xl font-extrabold tracking-tight md:text-6xl">
               Пользователи
             </h1>
-
-            <p className="mt-4 max-w-2xl font-inter text-base leading-7 text-[var(--color-text-secondary)]">
-              Управление аккаунтами, ролями и статусами пользователей проекта.
-            </p>
           </div>
 
           <div className="rounded-[24px] border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">

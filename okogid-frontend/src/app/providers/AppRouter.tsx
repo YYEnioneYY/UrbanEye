@@ -24,6 +24,7 @@ import { AdminPage } from '../../pages/admin/ui/AdminPage';
 import { RequireAdmin } from '../../features/auth/ui/RequireAdmin';
 import { AdminLayout } from '../../widgets/layouts/admin-layout/ui/AdminLayout';
 import { AdminUsersPage } from '../../pages/admin-users/ui/AdminUsersPage';
+import { AdminServicesPage } from '../../pages/admin-services/ui/AdminServicesPage';
 import { AdminPlaceholderPage } from '../../pages/admin/ui/AdminPlaceholderPage';
 
 export function AppRouter() {
@@ -90,15 +91,7 @@ export function AppRouter() {
             }
           />
 
-          <Route
-            path="services"
-            element={
-              <AdminPlaceholderPage
-                title="Статусы сервисов"
-                description="Состояние API Gateway, Auth Service, Camera Service, Stream Service и Geo Service."
-              />
-            }
-          />
+          <Route path="services" element={<AdminServicesPage />} />
 
           <Route
             path="settings"
