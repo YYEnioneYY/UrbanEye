@@ -23,6 +23,7 @@ import { ProfileLayout } from '../../widgets/layouts/profile-layout/ui/ProfileLa
 import { AdminPage } from '../../pages/admin/ui/AdminPage';
 import { RequireAdmin } from '../../features/auth/ui/RequireAdmin';
 import { AdminLayout } from '../../widgets/layouts/admin-layout/ui/AdminLayout';
+import { AdminPlaceholderPage } from '../../pages/admin/ui/AdminPlaceholderPage';
 
 export function AppRouter() {
   return (
@@ -53,8 +54,68 @@ export function AppRouter() {
       </Route>
 
       <Route element={<RequireAdmin />}>
-        <Route element={<AdminLayout />}>
-          <Route path="/admin-dashboard" element={<AdminPage />} />
+        <Route path="/admin-dashboard" element={<AdminLayout />}>
+          <Route index element={<AdminPage />} />
+        
+          <Route
+            path="cameras/new"
+            element={
+              <AdminPlaceholderPage
+                title="Добавить камеру"
+                description="Форма создания новой камеры: название, город, адрес, координаты, категория, статус и stream path."
+              />
+            }
+          />
+      
+          <Route
+            path="cameras"
+            element={
+              <AdminPlaceholderPage
+                title="Список камер"
+                description="Таблица всех камер с возможностью поиска, фильтрации, редактирования и отключения."
+              />
+            }
+          />
+      
+          <Route
+            path="users"
+            element={
+              <AdminPlaceholderPage
+                title="Пользователи"
+                description="Список пользователей, роли, статусы аккаунтов и управление доступом."
+              />
+            }
+          />
+      
+          <Route
+            path="statistics"
+            element={
+              <AdminPlaceholderPage
+                title="Статистика"
+                description="Просмотры камер, активность пользователей, популярные места и динамика посещений."
+              />
+            }
+          />
+      
+          <Route
+            path="services"
+            element={
+              <AdminPlaceholderPage
+                title="Статусы сервисов"
+                description="Состояние API Gateway, Auth Service, Camera Service, Stream Service и Geo Service."
+              />
+            }
+          />
+      
+          <Route
+            path="settings"
+            element={
+              <AdminPlaceholderPage
+                title="Настройки"
+                description="Глобальные параметры проекта, лимиты, отображение карты и системные настройки."
+              />
+            }
+          />
         </Route>
       </Route>
 

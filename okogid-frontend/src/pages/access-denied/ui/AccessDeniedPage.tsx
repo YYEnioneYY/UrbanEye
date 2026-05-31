@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 function ShieldIcon() {
   return (
     <svg
-      className="h-12 w-12 text-[var(--color-primary-text)]"
+      className="h-12 w-12 text-[var(--color-secondary-text)]"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
