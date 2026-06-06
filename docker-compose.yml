@@ -213,8 +213,53 @@ services:
     networks:
       - okogid-network
 
+  camera-postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: urbaneye-camera-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CAMERA_POSTGRES_DB}
+      POSTGRES_USER: ${CAMERA_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${CAMERA_POSTGRES_PASSWORD}
+    ports:
+      - "${CAMERA_POSTGRES_PORT}:5432"
+    volumes:
+      - camera_postgres_data:/var/lib/postgresql/data
+    networks:
+      - okogid-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${CAMERA_POSTGRES_USER} -d ${CAMERA_POSTGRES_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  camera-service:
+    build:
+      context: ./camera-service
+      dockerfile: Dockerfile
+    container_name: urbaneye-camera-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${CAMERA_DATABASE_URL}
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_CLIENT_ID: ${CAMERA_SERVICE_KAFKA_CLIENT_ID}
+      KAFKA_GROUP_ID: ${CAMERA_SERVICE_KAFKA_GROUP_ID}
+      CAMERA_CONNECTION_ENCRYPTION_KEY: ${CAMERA_CONNECTION_ENCRYPTION_KEY}
+    depends_on:
+      camera-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - okogid-network
+
 volumes:
   postgres_data:
+  camera_postgres_data:
   kafka_data:
 
 networks:
