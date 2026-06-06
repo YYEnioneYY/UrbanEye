@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CameraStatus {
+  online
+  offline
+  maintenance
+  planned
+
+  @@map("camera_status")
+}
+
+model Camera {
+  id          String       @id @default(uuid()) @db.Uuid
+  title       String
+  slug        String       @unique
+  description String?
+  status      CameraStatus @default(planned)
+
+  city        String?
+  address     String?
+  category    String?
+
+  location    Unsupported("geometry(Point, 4326)")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  connection  CameraConnection?
+
+  @@map("cameras")
+}
+
+model CameraConnection {
+  id                String   @id @default(uuid()) @db.Uuid
+  cameraId          String   @unique @map("camera_id") @db.Uuid
+
+  encryptedRtspUrl  String   @map("encrypted_rtsp_url")
+  encryptedUsername String?  @map("encrypted_username")
+  encryptedPassword String?  @map("encrypted_password")
+
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@map("camera_connections")
+}
