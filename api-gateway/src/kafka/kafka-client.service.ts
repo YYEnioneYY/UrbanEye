@@ -27,6 +27,9 @@ export class KafkaClientService implements OnModuleInit, OnModuleDestroy {
     /* GeoService */
     'geo.me',
 
+    /* CameraService */
+    'camera.cameras.find_all',
+
     /* StreamService */
     'cameras.find_all',
     'cameras.find_by_id',
@@ -60,23 +63,27 @@ export class KafkaClientService implements OnModuleInit, OnModuleDestroy {
   ): Promise<TResult> {
     try {
       return await firstValueFrom(
-        this.client.send<TResult, TPayload>(pattern, payload).pipe(timeout(10000)),
+        this.client
+          .send<TResult, TPayload>(pattern, payload)
+          .pipe(timeout(10000)),
       );
     } catch (error) {
-      this.throwHttpException(error);
+      this.throwHttpException(error, pattern);
     }
   }
-
-  private throwHttpException(error: unknown): never {
+  
+  private throwHttpException(error: unknown, pattern: string): never {
     const err = error as any;
-
+  
     if (err?.name === 'TimeoutError') {
-      throw new GatewayTimeoutException('Auth service timeout');
+      throw new GatewayTimeoutException(
+        `Microservice timeout for Kafka pattern: ${pattern}`,
+      );
     }
-
+  
     const response = err?.response ?? err;
     const statusCode = response?.statusCode ?? response?.status;
-
+  
     if (typeof statusCode === 'number') {
       throw new HttpException(
         {
@@ -87,7 +94,9 @@ export class KafkaClientService implements OnModuleInit, OnModuleDestroy {
         statusCode,
       );
     }
-
-    throw new BadGatewayException('Auth service unavailable');
+  
+    throw new BadGatewayException(
+      `Microservice unavailable for Kafka pattern: ${pattern}`,
+    );
   }
 }

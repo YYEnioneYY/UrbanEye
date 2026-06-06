@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { GeoModule } from './geo/geo.module';
 import { CameraStreamModule } from './camera-stream/camera-stream.module';
 import { AdminModule } from './admin/admin.module';
+import { CameraModule } from './camera/camera.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdminModule } from './admin/admin.module';
     GeoModule,
     CameraStreamModule,
     AdminModule,
+    CameraModule,
   ],
 })
 export class AppModule {}
