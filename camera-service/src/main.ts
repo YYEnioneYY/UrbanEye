@@ -12,21 +12,7 @@ function getKafkaBrokers(): string[] {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
-    AppModule,
-    {
-      transport: Transport.KAFKA,
-      options: {
-        client: {
-          clientId: process.env.KAFKA_CLIENT_ID ?? 'camera-service',
-          brokers: getKafkaBrokers(),
-        },
-        consumer: {
-          groupId: process.env.KAFKA_GROUP_ID ?? 'camera-service-consumer',
-        },
-      },
-    },
-  );
+  const app = await NestFactory.create(AppModule);
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -36,7 +22,24 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen();
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.KAFKA,
+    options: {
+      client: {
+        clientId: process.env.KAFKA_CLIENT_ID ?? 'camera-service',
+        brokers: getKafkaBrokers(),
+      },
+      consumer: {
+        groupId: process.env.KAFKA_GROUP_ID ?? 'camera-service-consumer',
+      },
+    },
+  });
+
+  await app.startAllMicroservices();
+
+  const port = Number(process.env.PORT ?? 3000);
+
+  await app.listen(port, '0.0.0.0');
 }
 
 bootstrap();
