@@ -33,7 +33,6 @@ services:
     container_name: urbaneye-geo-service
     restart: unless-stopped
     environment:
-      PORT: ${GEO_SERVICE_PORT}
       GEOIP_DB_PATH: /app/GeoLite2-City.mmdb
       KAFKA_BROKERS: ${KAFKA_BROKERS} 
       KAFKA_GROUP_ID: ${GEO_KAFKA_GROUP_ID}
@@ -189,25 +188,22 @@ services:
     container_name: camera-stream-api
     restart: unless-stopped
     environment:
-      PORT: 3000
-
-      CAMERAS_CONFIG_PATH: /app/config/cameras.local.json
-
       MEDIAMTX_API_URL: http://camera-mediamtx:9997
       MEDIAMTX_API_USER: stream_service
       MEDIAMTX_API_PASSWORD: stream_service_password
-
       MEDIAMTX_WEBRTC_PUBLIC_URL: http://localhost:8889
 
-      KAFKA_ENABLED: "true"
       KAFKA_BROKERS: kafka:9092
       KAFKA_CLIENT_ID: camera-stream-service
       KAFKA_GROUP_ID: camera-stream-service-consumer
-    volumes:
-      - ./stream-service/config:/app/config:ro
+
+      CAMERA_SERVICE_INTERNAL_URL: http://camera-service:3000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
     depends_on:
       kafka:
         condition: service_healthy
+      camera-service:
+        condition: service_started
       camera-mediamtx:
         condition: service_started
     networks:
@@ -244,11 +240,16 @@ services:
     container_name: urbaneye-camera-service
     restart: unless-stopped
     environment:
+      PORT: 3000
+
       DATABASE_URL: ${CAMERA_DATABASE_URL}
       KAFKA_BROKERS: kafka:9092
       KAFKA_CLIENT_ID: ${CAMERA_SERVICE_KAFKA_CLIENT_ID}
       KAFKA_GROUP_ID: ${CAMERA_SERVICE_KAFKA_GROUP_ID}
       CAMERA_CONNECTION_ENCRYPTION_KEY: ${CAMERA_CONNECTION_ENCRYPTION_KEY}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    expose:
+      - "3000"  
     depends_on:
       camera-postgres:
         condition: service_healthy
