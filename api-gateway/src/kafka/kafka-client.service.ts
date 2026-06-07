@@ -29,10 +29,11 @@ export class KafkaClientService implements OnModuleInit, OnModuleDestroy {
 
     /* CameraService */
     'camera.cameras.find_all',
+    'camera.cameras.create',
+    'camera.cameras.find_by_bbox',
+    'camera.admin.cameras.find_all',
 
     /* StreamService */
-    'cameras.find_all',
-    'cameras.find_by_id',
     'streams.get_by_camera_id',
     'streams.get_status_by_camera_id',
 
