@@ -1,63 +1,115 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { toPublicCamera } from '../cameras/camera.mapper';
-import { CamerasRepository } from '../cameras/cameras.repository';
-import { MediaServerClient } from './media-server.client';
+import { CameraHttpClientService } from '../camera-http-client/camera-http-client.service';
+import { MediamtxService } from '../mediamtx/mediamtx.service';
 
 @Injectable()
 export class StreamsService {
   constructor(
+    private readonly cameraHttpClientService: CameraHttpClientService,
+    private readonly mediamtxService: MediamtxService,
     private readonly configService: ConfigService,
-    private readonly camerasRepository: CamerasRepository,
-    private readonly mediaServerClient: MediaServerClient,
   ) {}
 
-  async getStreamByCameraId(cameraId: string) {
-    const camera = await this.camerasRepository.findById(cameraId);
+  async getByCameraId(cameraId: string) {
+    const cameraData =
+      await this.cameraHttpClientService.getConnectionByCameraId(cameraId);
 
-    if (!camera) {
-      throw new NotFoundException(`Camera ${cameraId} not found`);
-    }
+    const path = cameraData.streamPath;
 
-    await this.mediaServerClient.registerRtspPath(camera.path, camera.rtspUrl);
-
-    const publicWebrtcUrl = this.configService.getOrThrow<string>(
-      'MEDIAMTX_WEBRTC_PUBLIC_URL',
+    const rtspUrl = this.buildRtspUrlWithCredentials(
+      cameraData.connection.rtspUrl,
+      cameraData.connection.username,
+      cameraData.connection.password,
     );
 
+    await this.mediamtxService.ensureRtspPath(path, rtspUrl);
+
     return {
-      camera: toPublicCamera(camera),
+      camera: cameraData.camera,
       stream: {
-        type: 'webrtc',
-        path: camera.path,
-
-        // Для быстрого iframe-плеера.
-        playerUrl: `${publicWebrtcUrl}/${camera.path}`,
-
-        // Для кастомного WebRTC-плеера.
-        whepUrl: `${publicWebrtcUrl}/${camera.path}/whep`,
+        type: 'webrtc' as const,
+        path,
+        playerUrl: this.buildPlayerUrl(path),
+        whepUrl: this.buildWhepUrl(path),
       },
     };
   }
 
   async getStatusByCameraId(cameraId: string) {
-    const camera = await this.camerasRepository.findById(cameraId);
+    const cameraData =
+      await this.cameraHttpClientService.getConnectionByCameraId(cameraId);
 
-    if (!camera) {
-      throw new NotFoundException(`Camera ${cameraId} not found`);
-    }
+    const path = cameraData.streamPath;
 
-    const pathsList = await this.mediaServerClient.getPathsList();
-    const items = pathsList.items ?? [];
-
-    const pathInfo = items.find((item: any) => item.name === camera.path);
+    const mediaServerPath = await this.mediamtxService.getPathStatus(path);
 
     return {
-      cameraId: camera.id,
-      path: camera.path,
-      configured: Boolean(pathInfo),
-      online: Boolean(pathInfo?.ready ?? pathInfo?.available ?? false),
-      mediaServerPath: pathInfo ?? null,
+      cameraId,
+      path,
+      configured: Boolean(mediaServerPath),
+      online: this.isPathOnline(mediaServerPath),
+      mediaServerPath,
     };
+  }
+
+  private buildPlayerUrl(path: string): string {
+    const publicUrl = this.getWebrtcPublicUrl();
+
+    return `${publicUrl}/${path}`;
+  }
+
+  private buildWhepUrl(path: string): string {
+    const publicUrl = this.getWebrtcPublicUrl();
+
+    return `${publicUrl}/${path}/whep`;
+  }
+
+  private getWebrtcPublicUrl(): string {
+    return (
+      this.configService.get<string>('MEDIAMTX_WEBRTC_PUBLIC_URL') ??
+      'http://localhost:8889'
+    ).replace(/\/+$/, '');
+  }
+
+  private buildRtspUrlWithCredentials(
+    rtspUrl: string,
+    username: string | null,
+    password: string | null,
+  ): string {
+    if (!username && !password) {
+      return rtspUrl;
+    }
+
+    const url = new URL(rtspUrl);
+
+    if (url.username || url.password) {
+      return rtspUrl;
+    }
+
+    if (username) {
+      url.username = username;
+    }
+
+    if (password) {
+      url.password = password;
+    }
+
+    return url.toString();
+  }
+
+  private isPathOnline(mediaServerPath: unknown | null): boolean {
+    if (!mediaServerPath || typeof mediaServerPath !== 'object') {
+      return false;
+    }
+
+    const path = mediaServerPath as any;
+
+    return Boolean(
+      path.ready === true ||
+        path.sourceReady === true ||
+        path.tracks?.length > 0 ||
+        path.bytesReceived > 0,
+    );
   }
 }

@@ -1,13 +1,12 @@
 import { Module } from '@nestjs/common';
-import { CamerasModule } from '../cameras/cameras.module';
-import { MediaServerClient } from './media-server.client';
-import { StreamsBootstrap } from './streams.bootstrap';
+import { CameraHttpClientModule } from '../camera-http-client/camera-http-client.module';
+import { MediamtxModule } from '../mediamtx/mediamtx.module';
 import { StreamsController } from './streams.controller';
 import { StreamsService } from './streams.service';
 
 @Module({
-  imports: [CamerasModule],
+  imports: [CameraHttpClientModule, MediamtxModule],
   controllers: [StreamsController],
-  providers: [StreamsService, StreamsBootstrap, MediaServerClient],
+  providers: [StreamsService],
 })
 export class StreamsModule {}

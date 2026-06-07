@@ -1,3 +1,5 @@
+import 'dotenv/config';
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { AppModule } from './app.module';
@@ -9,20 +11,10 @@ function getKafkaBrokers(): string[] {
     .filter(Boolean);
 }
 
-function isKafkaEnabled(): boolean {
-  return (process.env.KAFKA_ENABLED ?? 'true') === 'true';
-}
-
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  app.enableCors({
-    origin: true,
-    credentials: true,
-  });
-
-  if (isKafkaEnabled()) {
-    app.connectMicroservice<MicroserviceOptions>({
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
+    AppModule,
+    {
       transport: Transport.KAFKA,
       options: {
         client: {
@@ -31,17 +23,22 @@ async function bootstrap() {
         },
         consumer: {
           groupId:
-            process.env.KAFKA_GROUP_ID ?? 'camera-stream-service-consumer',
+            process.env.KAFKA_GROUP_ID ??
+            'camera-stream-service-consumer',
         },
       },
-    });
+    },
+  );
 
-    await app.startAllMicroservices();
-  }
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
-  const port = Number(process.env.PORT ?? 3000);
-
-  await app.listen(port);
+  await app.listen();
 }
 
 bootstrap();
