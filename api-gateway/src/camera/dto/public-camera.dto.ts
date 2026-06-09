@@ -57,6 +57,9 @@ export class PublicCameraDto {
   @ApiProperty({ type: CameraCoverageDto })
   coverage!: CameraCoverageDto;
 
+  @ApiProperty({ example: 125 })
+  viewsCount!: number;
+
   @ApiProperty({ example: '2026-05-27T18:00:00.000Z' })
   createdAt!: string;
 
