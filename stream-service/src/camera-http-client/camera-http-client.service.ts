@@ -29,6 +29,7 @@ export type InternalCameraConnectionResponse = {
       fovDeg: number;
       rangeMeters: number;
     };
+    viewsCount: number;
     createdAt: string;
     updatedAt: string;
   };
@@ -93,6 +94,35 @@ export class CameraHttpClientService {
           err?.response?.data?.message ??
           err?.message ??
           'Camera service unavailable',
+      });
+    }
+  }
+
+  async incrementViews(cameraId: string): Promise<void> {
+    const url = `${this.cameraServiceUrl}/internal/cameras/${cameraId}/views`;
+
+    try {
+      await firstValueFrom(
+        this.httpService.post(
+          url,
+          {},
+          {
+            headers: {
+              'x-internal-api-key': this.internalApiKey,
+            },
+            timeout: 5000,
+          },
+        ),
+      );
+    } catch (error) {
+      const err = error as any;
+
+      console.error('[stream-service] increment camera views failed:', {
+        url,
+        code: err?.code,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        message: err?.message,
       });
     }
   }

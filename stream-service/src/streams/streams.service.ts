@@ -25,6 +25,8 @@ export class StreamsService {
 
     await this.mediamtxService.ensureRtspPath(path, rtspUrl);
 
+    await this.cameraHttpClientService.incrementViews(cameraId);
+
     return {
       camera: cameraData.camera,
       stream: {
