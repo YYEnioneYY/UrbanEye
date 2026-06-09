@@ -9,6 +9,8 @@ import { FindCamerasByBboxDto } from './dto/find-cameras-by-bbox.dto';
 import { PublicCamera } from './types/public-camera.type';
 import { NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { FindPublicCamerasDto } from './dto/find-public-cameras.dto';
+import { FindCamerasLookingAtPointDto } from './dto/find-cameras-looking-at-point.dto';
 
 type CameraStatus = 'online' | 'offline' | 'maintenance' | 'planned';
 
@@ -23,8 +25,17 @@ type CameraRow = {
   category: string | null;
   latitude: number;
   longitude: number;
+  direction_deg: number | null;
+  fov_deg: number;
+  range_meters: number;
   created_at: Date;
   updated_at: Date;
+};
+
+type CameraLookingAtRow = CameraRow & {
+  distance_m: number;
+  bearing_deg: number;
+  angle_diff_deg: number;
 };
 
 type AdminCameraRow = CameraRow & {
@@ -52,6 +63,12 @@ export class CameraService {
     const status = dto.status ?? 'planned';
     const latitude = Number(dto.latitude);
     const longitude = Number(dto.longitude);
+
+    const directionDeg =
+      dto.directionDeg === undefined ? null : Number(dto.directionDeg);
+
+    const fovDeg = dto.fovDeg ?? 90;
+    const rangeMeters = dto.rangeMeters ?? 100;
     
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -66,6 +83,9 @@ export class CameraService {
             address,
             category,
             location,
+            direction_deg,
+            fov_deg,
+            range_meters,
             created_at,
             updated_at
           )
@@ -85,6 +105,9 @@ export class CameraService {
               ),
               4326
             ),
+            ${directionDeg},
+            CAST(${fovDeg} AS double precision),
+            CAST(${rangeMeters} AS integer),
             NOW(),
             NOW()
           )
@@ -99,6 +122,9 @@ export class CameraService {
             category,
             ST_Y(location::geometry) as latitude,
             ST_X(location::geometry) as longitude,
+            direction_deg,
+            fov_deg,
+            range_meters,
             created_at,
             updated_at;
         `;
@@ -164,6 +190,9 @@ export class CameraService {
         category,
         ST_Y(location::geometry) as latitude,
         ST_X(location::geometry) as longitude,
+        direction_deg,
+        fov_deg,
+        range_meters,
         created_at,
         updated_at
       FROM cameras
@@ -220,6 +249,9 @@ export class CameraService {
         c.category,
         ST_Y(c.location::geometry) as latitude,
         ST_X(c.location::geometry) as longitude,
+        c.direction_deg,
+        c.fov_deg,
+        c.range_meters,
         c.created_at,
         c.updated_at,
         c.deleted_at,
@@ -277,6 +309,12 @@ export class CameraService {
         lat: Number(row.latitude),
         lng: Number(row.longitude),
       },
+      coverage: {
+        directionDeg:
+          row.direction_deg === null ? null : Number(row.direction_deg),
+        fovDeg: Number(row.fov_deg),
+        rangeMeters: Number(row.range_meters),
+      },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -308,6 +346,9 @@ export class CameraService {
         city: true,
         address: true,
         category: true,
+        directionDeg: true,
+        fovDeg: true,
+        rangeMeters: true,
         createdAt: true,
         updatedAt: true,
         connection: {
@@ -359,6 +400,11 @@ export class CameraService {
           lat: Number(coordinates.latitude),
           lng: Number(coordinates.longitude),
         },
+        coverage: {
+          directionDeg: camera.directionDeg,
+          fovDeg: camera.fovDeg,
+          rangeMeters: camera.rangeMeters,
+        },
         createdAt: camera.createdAt,
         updatedAt: camera.updatedAt,
       },
@@ -375,5 +421,173 @@ export class CameraService {
         ),
       },
     };
+  }
+
+  async findAllPublic(dto: FindPublicCamerasDto) {
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+    
+    const conditions: Prisma.Sql[] = [
+      Prisma.sql`c.deleted_at IS NULL`,
+    ];
+  
+    if (dto.search?.trim()) {
+      const search = `%${dto.search.trim()}%`;
+    
+      conditions.push(Prisma.sql`
+        (
+          c.title ILIKE ${search}
+          OR c.slug ILIKE ${search}
+          OR c.city ILIKE ${search}
+          OR c.address ILIKE ${search}
+          OR c.category ILIKE ${search}
+        )
+      `);
+    }
+  
+    if (dto.status) {
+      conditions.push(Prisma.sql`
+        c.status = CAST(${dto.status} AS camera_status)
+      `);
+    }
+  
+    if (dto.city?.trim()) {
+      conditions.push(Prisma.sql`
+        c.city ILIKE ${`%${dto.city.trim()}%`}
+      `);
+    }
+  
+    if (dto.category?.trim()) {
+      conditions.push(Prisma.sql`
+        c.category ILIKE ${`%${dto.category.trim()}%`}
+      `);
+    }
+  
+    const whereSql = Prisma.sql`
+      WHERE ${Prisma.join(conditions, ' AND ')}
+    `;
+  
+    const rows = await this.prisma.$queryRaw<CameraRow[]>(Prisma.sql`
+      SELECT
+        c.id::text,
+        c.title,
+        c.slug,
+        c.description,
+        c.status::text as status,
+        c.city,
+        c.address,
+        c.category,
+        ST_Y(c.location::geometry) as latitude,
+        ST_X(c.location::geometry) as longitude,
+        c.direction_deg,
+        c.fov_deg,
+        c.range_meters,
+        c.created_at,
+        c.updated_at
+      FROM cameras c
+      ${whereSql}
+      ORDER BY c.created_at DESC
+      LIMIT ${limit}
+      OFFSET ${skip};
+    `);
+    
+    const countRows = await this.prisma.$queryRaw<CountRow[]>(Prisma.sql`
+      SELECT COUNT(*)::int as total
+      FROM cameras c
+      ${whereSql};
+    `);
+    
+    const total = countRows[0]?.total ?? 0;
+    
+    return {
+      data: rows.map((row) => this.mapPublicCamera(row)),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async findLookingAtPoint(dto: FindCamerasLookingAtPointDto) {
+    const targetLat = Number(dto.lat);
+    const targetLng = Number(dto.lng);
+    
+    const rows = await this.prisma.$queryRaw<CameraLookingAtRow[]>(Prisma.sql`
+      WITH target AS (
+        SELECT ST_SetSRID(
+          ST_MakePoint(
+            CAST(${targetLng} AS double precision),
+            CAST(${targetLat} AS double precision)
+          ),
+          4326
+        ) AS geom
+      ),
+      calc AS (
+        SELECT
+          c.id::text,
+          c.title,
+          c.slug,
+          c.description,
+          c.status::text as status,
+          c.city,
+          c.address,
+          c.category,
+          ST_Y(c.location::geometry) as latitude,
+          ST_X(c.location::geometry) as longitude,
+          c.direction_deg,
+          c.fov_deg,
+          c.range_meters,
+          c.created_at,
+          c.updated_at,
+    
+          ST_Distance(
+            c.location::geography,
+            target.geom::geography
+          ) as distance_m,
+    
+          COALESCE(
+            degrees(ST_Azimuth(c.location::geometry, target.geom)),
+            c.direction_deg
+          ) as bearing_deg
+        FROM cameras c
+        CROSS JOIN target
+        WHERE c.deleted_at IS NULL
+          AND c.direction_deg IS NOT NULL
+          AND ST_DWithin(
+            c.location::geography,
+            target.geom::geography,
+            c.range_meters
+          )
+      ),
+      final AS (
+        SELECT
+          *,
+          ABS(
+            MOD(
+              CAST((bearing_deg - direction_deg + 540) AS numeric),
+              360
+            )::double precision - 180
+          ) as angle_diff_deg
+        FROM calc
+      )
+      SELECT *
+      FROM final
+      WHERE angle_diff_deg <= fov_deg / 2
+      ORDER BY distance_m ASC;
+    `);
+    
+    return rows.map((row) => ({
+      ...this.mapPublicCamera(row),
+      viewMatch: {
+        distanceMeters: Math.round(Number(row.distance_m) * 100) / 100,
+        bearingDeg: Math.round(Number(row.bearing_deg) * 100) / 100,
+        angleDiffDeg: Math.round(Number(row.angle_diff_deg) * 100) / 100,
+      },
+    }));
   }
 } 

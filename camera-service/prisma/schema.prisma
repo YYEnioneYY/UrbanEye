@@ -28,6 +28,10 @@ model Camera {
 
   location    Unsupported("geometry(Point, 4326)")
 
+  directionDeg Float? @map("direction_deg")
+  fovDeg       Float  @default(90) @map("fov_deg")
+  rangeMeters  Int    @default(100) @map("range_meters")
+
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")

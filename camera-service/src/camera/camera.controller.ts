@@ -4,7 +4,8 @@ import { CameraService } from './camera.service';
 import { CreateCameraDto } from './dto/create-camera.dto';
 import { FindAdminCamerasDto } from './dto/find-admin-cameras.dto';
 import { FindCamerasByBboxDto } from './dto/find-cameras-by-bbox.dto';
-import { GetCameraConnectionDto } from './dto/get-camera-connection.dto';
+import { FindPublicCamerasDto } from './dto/find-public-cameras.dto';
+import { FindCamerasLookingAtPointDto } from './dto/find-cameras-looking-at-point.dto';
 
 @Controller()
 export class CameraController {
@@ -23,5 +24,15 @@ export class CameraController {
   @MessagePattern('camera.admin.cameras.find_all')
   findAllAdmin(@Payload() dto: FindAdminCamerasDto) {
     return this.cameraService.findAllAdmin(dto);
+  }
+
+  @MessagePattern('camera.public.cameras.find_all')
+  findAllPublic(@Payload() dto: FindPublicCamerasDto) {
+    return this.cameraService.findAllPublic(dto);
+  }
+
+  @MessagePattern('camera.cameras.find_looking_at_point')
+  findLookingAtPoint(@Payload() dto: FindCamerasLookingAtPointDto) {
+    return this.cameraService.findLookingAtPoint(dto);
   }
 }

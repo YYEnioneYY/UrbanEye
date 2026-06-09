@@ -3,10 +3,14 @@ import {
   IsEnum,
   IsLatitude,
   IsLongitude,
+  IsNumber,
   IsOptional,
   IsString,
+  Max,
+  Min,
   MinLength,
   ValidateNested,
+  IsInt,
 } from 'class-validator';
 
 export enum CameraStatusDto {
@@ -64,6 +68,27 @@ export class CreateCameraDto {
 
   @IsLongitude()
   longitude!: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(359.999)
+  directionDeg?: number;
+  
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(180)
+  fovDeg?: number = 90;
+  
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5000)
+  rangeMeters?: number = 100;
 
   @ValidateNested()
   @Type(() => CreateCameraConnectionDto)
