@@ -1,4 +1,11 @@
-import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { InternalApiKeyGuard } from '../common/guards/internal-api-key.guard';
 import { CameraService } from './camera.service';
 
@@ -13,5 +20,13 @@ export class InternalCameraController {
     cameraId: string,
   ) {
     return this.cameraService.getInternalConnectionByCameraId(cameraId);
+  }
+
+  @Post(':cameraId/views')
+  incrementViews(
+    @Param('cameraId', new ParseUUIDPipe({ version: '4' }))
+    cameraId: string,
+  ) {
+    return this.cameraService.incrementViews(cameraId);
   }
 }

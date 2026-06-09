@@ -16,6 +16,7 @@ export type PublicCamera = {
     fovDeg: number;
     rangeMeters: number;
   };
+  viewsCount: number;
   createdAt: Date;
   updatedAt: Date;
 };

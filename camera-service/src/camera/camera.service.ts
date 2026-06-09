@@ -28,6 +28,7 @@ type CameraRow = {
   direction_deg: number | null;
   fov_deg: number;
   range_meters: number;
+  views_count: number;
   created_at: Date;
   updated_at: Date;
 };
@@ -86,6 +87,7 @@ export class CameraService {
             direction_deg,
             fov_deg,
             range_meters,
+            views_count,
             created_at,
             updated_at
           )
@@ -108,6 +110,7 @@ export class CameraService {
             ${directionDeg},
             CAST(${fovDeg} AS double precision),
             CAST(${rangeMeters} AS integer),
+            0,
             NOW(),
             NOW()
           )
@@ -125,6 +128,7 @@ export class CameraService {
             direction_deg,
             fov_deg,
             range_meters,
+            views_count,
             created_at,
             updated_at;
         `;
@@ -193,6 +197,7 @@ export class CameraService {
         direction_deg,
         fov_deg,
         range_meters,
+        views_count,
         created_at,
         updated_at
       FROM cameras
@@ -252,6 +257,7 @@ export class CameraService {
         c.direction_deg,
         c.fov_deg,
         c.range_meters,
+        c.views_count,
         c.created_at,
         c.updated_at,
         c.deleted_at,
@@ -315,6 +321,7 @@ export class CameraService {
         fovDeg: Number(row.fov_deg),
         rangeMeters: Number(row.range_meters),
       },
+      viewsCount: Number(row.views_count),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -346,6 +353,7 @@ export class CameraService {
         city: true,
         address: true,
         category: true,
+        viewsCount: true,
         directionDeg: true,
         fovDeg: true,
         rangeMeters: true,
@@ -405,6 +413,7 @@ export class CameraService {
           fovDeg: camera.fovDeg,
           rangeMeters: camera.rangeMeters,
         },
+        viewsCount: camera.viewsCount,
         createdAt: camera.createdAt,
         updatedAt: camera.updatedAt,
       },
@@ -483,6 +492,7 @@ export class CameraService {
         c.direction_deg,
         c.fov_deg,
         c.range_meters,
+        c.views_count,
         c.created_at,
         c.updated_at
       FROM cameras c
@@ -542,6 +552,7 @@ export class CameraService {
           c.direction_deg,
           c.fov_deg,
           c.range_meters,
+          c.views_count,
           c.created_at,
           c.updated_at,
     
@@ -589,5 +600,32 @@ export class CameraService {
         angleDiffDeg: Math.round(Number(row.angle_diff_deg) * 100) / 100,
       },
     }));
+  }
+
+  async incrementViews(cameraId: string) {
+    const rows = await this.prisma.$queryRaw<
+      {
+        id: string;
+        views_count: number;
+      }[]
+    >`
+      UPDATE cameras
+      SET views_count = views_count + 1,
+          updated_at = NOW()
+      WHERE id = ${cameraId}::uuid
+        AND deleted_at IS NULL
+      RETURNING id::text, views_count;
+    `;
+
+    const camera = rows[0];
+
+    if (!camera) {
+      throw new NotFoundException('Camera not found');
+    }
+
+    return {
+      cameraId: camera.id,
+      viewsCount: Number(camera.views_count),
+    };
   }
 } 
