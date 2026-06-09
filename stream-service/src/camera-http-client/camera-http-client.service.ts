@@ -24,6 +24,11 @@ export type InternalCameraConnectionResponse = {
       lat: number;
       lng: number;
     };
+    coverage: {
+      directionDeg: number | null;
+      fovDeg: number;
+      rangeMeters: number;
+    };
     createdAt: string;
     updatedAt: string;
   };
