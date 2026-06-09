@@ -12,6 +12,9 @@ import { AdminCameraQueryDto } from './dto/admin-camera-query.dto';
 import { CameraBboxQueryDto } from './dto/camera-bbox-query.dto';
 import { CreateCameraDto } from './dto/create-camera.dto';
 import { PublicCameraDto } from './dto/public-camera.dto';
+import { PublicCameraListResponseDto } from './dto/public-camera-list-response.dto';
+import { PublicCameraQueryDto } from './dto/public-camera-query.dto';
+import { CamerasLookingAtPointQueryDto } from './dto/cameras-looking-at-point-query.dto';
 
 @ApiTags('Cameras')
 @Controller()
@@ -32,6 +35,23 @@ export class CameraController {
   @ApiOkResponse({ type: PublicCameraDto, isArray: true })
   findByBbox(@Query() query: CameraBboxQueryDto) {
     return this.cameraService.findByBbox(query);
+  }
+
+  @Get('cameras')
+  @ApiOperation({
+    summary: 'Получить список всех камер с пагинацией без секретов',
+  })
+  @ApiOkResponse({ type: PublicCameraListResponseDto })
+  findAllPublic(@Query() query: PublicCameraQueryDto) {
+    return this.cameraService.findAllPublic(query);
+  }
+
+  @Get('cameras/looking-at')
+  @ApiOperation({
+    summary: 'Получить камеры, которые смотрят на выбранную точку карты',
+  })
+  findLookingAtPoint(@Query() query: CamerasLookingAtPointQueryDto) {
+    return this.cameraService.findLookingAtPoint(query);
   }
 
   @Get('admin/cameras')

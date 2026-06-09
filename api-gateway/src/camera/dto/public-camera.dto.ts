@@ -8,6 +8,21 @@ class CameraCoordinatesDto {
   lng!: number;
 }
 
+class CameraCoverageDto {
+  @ApiProperty({
+    example: 45,
+    nullable: true,
+    description: 'Азимут направления камеры: 0 север, 90 восток, 180 юг, 270 запад',
+  })
+  directionDeg!: number | null;
+
+  @ApiProperty({ example: 90 })
+  fovDeg!: number;
+
+  @ApiProperty({ example: 100 })
+  rangeMeters!: number;
+}
+
 export class PublicCameraDto {
   @ApiProperty({ example: 'b4c606c0-5f8a-4d4c-93c3-90e040f7f6fb' })
   id!: string;
@@ -38,6 +53,9 @@ export class PublicCameraDto {
 
   @ApiProperty({ type: CameraCoordinatesDto })
   coordinates!: CameraCoordinatesDto;
+
+  @ApiProperty({ type: CameraCoverageDto })
+  coverage!: CameraCoverageDto;
 
   @ApiProperty({ example: '2026-05-27T18:00:00.000Z' })
   createdAt!: string;

@@ -8,6 +8,10 @@ import {
   IsString,
   MinLength,
   ValidateNested,
+  IsInt,
+  IsNumber,
+  Max,
+  Min,
 } from 'class-validator';
 
 export enum CameraStatusDto {
@@ -72,6 +76,33 @@ export class CreateCameraDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @ApiPropertyOptional({
+    example: 90,
+    description: 'Азимут направления камеры: 0 север, 90 восток, 180 юг, 270 запад',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(359.999)
+  directionDeg?: number;
+
+  @ApiPropertyOptional({ example: 90, default: 90 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(180)
+  fovDeg?: number = 90;
+
+  @ApiPropertyOptional({ example: 100, default: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5000)
+  rangeMeters?: number = 100;
 
   @ApiProperty({ example: 59.9398 })
   @IsLatitude()
