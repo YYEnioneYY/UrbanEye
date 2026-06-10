@@ -5,25 +5,45 @@ export type ApiCamera = {
   title: string;
   slug: string;
   description: string;
+
+  status: string;
+
   city: string;
   address: string;
   category: string;
-  status: string;
+
   coordinates: {
     lat: number;
     lng: number;
   };
-  path: string;
-  enabled: boolean;
-  streamEndpoint: string;
+
+  coverage?: {
+    directionDeg: number;
+    fovDeg: number;
+    rangeMeters: number;
+  };
+
+  viewsCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+
+  viewMatch?: {
+    distanceMeters: number;
+    bearingDeg: number;
+    angleDiffDeg: number;
+  };
+
+  path?: string;
+  enabled?: boolean;
+  streamEndpoint?: string;
 };
 
 function mapCameraStatus(apiCamera: ApiCamera): CameraStatus {
-  if (!apiCamera.enabled) {
+  if (apiCamera.enabled === false) {
     return 'offline';
   }
 
-  if (apiCamera.status === 'active') {
+  if (apiCamera.status === 'active' || apiCamera.status === 'online') {
     return 'online';
   }
 
@@ -40,12 +60,23 @@ export function mapCameraFromApi(apiCamera: ApiCamera): Camera {
     title: apiCamera.title,
     slug: apiCamera.slug,
     description: apiCamera.description,
+
     city: apiCamera.city,
     address: apiCamera.address,
     category: apiCamera.category,
+
     status: mapCameraStatus(apiCamera),
+
     latitude: apiCamera.coordinates.lat,
     longitude: apiCamera.coordinates.lng,
+
+    coverage: apiCamera.coverage,
+    viewMatch: apiCamera.viewMatch,
+
+    viewsCount: apiCamera.viewsCount,
+    createdAt: apiCamera.createdAt,
+    updatedAt: apiCamera.updatedAt,
+
     path: apiCamera.path,
     enabled: apiCamera.enabled,
     streamEndpoint: apiCamera.streamEndpoint,

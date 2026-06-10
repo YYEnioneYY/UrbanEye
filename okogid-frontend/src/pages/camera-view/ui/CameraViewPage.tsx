@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
 import type { Camera } from '../../../entities/camera/model/types';
@@ -32,6 +32,28 @@ function getCategoryLabel(category: string) {
   };
 
   return categories[category] ?? category;
+}
+
+function formatDate(value?: string) {
+  if (!value) return '—';
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function formatMeters(value?: number) {
+  if (typeof value !== 'number') return '—';
+
+  if (value < 1000) {
+    return `${Math.round(value)} м`;
+  }
+
+  return `${(value / 1000).toFixed(1)} км`;
 }
 
 function MapPinIcon() {
@@ -92,12 +114,30 @@ function StreamIcon() {
   );
 }
 
+function EyeIcon() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 function InfoCard({
   icon,
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
 }) {
@@ -118,11 +158,32 @@ function InfoCard({
   );
 }
 
+function StatCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[22px] border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-4">
+      <p className="font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+        {label}
+      </p>
+
+      <p className="mt-2 text-xl font-extrabold text-[var(--color-text-primary)]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
 export function CameraViewPage() {
-  const { cameraId } = useParams();
+  const { cameraId } = useParams<{ cameraId: string }>();
 
   const [camera, setCamera] = useState<Camera | null>(null);
   const [stream, setStream] = useState<CameraStream | null>(null);
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,50 +193,47 @@ export function CameraViewPage() {
       setIsLoading(false);
       return;
     }
-  
+
     const currentCameraId = cameraId;
-  
-    let isActive = true;
     const abortController = new AbortController();
-  
+
     async function loadCameraStream() {
       try {
         setIsLoading(true);
         setError(null);
-      
+
         const data = await getCameraStreamByCameraId(
           currentCameraId,
           abortController.signal,
         );
-      
-        if (!isActive) {
+
+        if (abortController.signal.aborted) {
           return;
         }
-      
+
         setCamera(data.camera);
         setStream(data.stream);
       } catch (error) {
-        if (!isActive) {
+        if (abortController.signal.aborted) {
           return;
         }
-      
+
         const message =
           error instanceof Error
             ? error.message
             : 'Не удалось загрузить камеру';
-      
+
         setError(message);
       } finally {
-        if (isActive) {
+        if (!abortController.signal.aborted) {
           setIsLoading(false);
         }
       }
     }
-  
+
     loadCameraStream();
-  
+
     return () => {
-      isActive = false;
       abortController.abort();
     };
   }, [cameraId]);
@@ -258,8 +316,40 @@ export function CameraViewPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-          <CameraPlayer stream={stream} title={camera.title} />
+        <div className="grid gap-6 lg:grid-cols-[1fr_390px]">
+          <div className="space-y-5">
+            <CameraPlayer stream={stream} title={camera.title} />
+
+            <div className="grid gap-4 md:grid-cols-4">
+              <StatCard
+                label="Просмотры"
+                value={String(camera.viewsCount ?? 0)}
+              />
+
+              <StatCard
+                label="Дальность"
+                value={formatMeters(camera.coverage?.rangeMeters)}
+              />
+
+              <StatCard
+                label="Угол обзора"
+                value={
+                  camera.coverage?.fovDeg
+                    ? `${camera.coverage.fovDeg}°`
+                    : '—'
+                }
+              />
+
+              <StatCard
+                label="Направление"
+                value={
+                  camera.coverage?.directionDeg
+                    ? `${camera.coverage.directionDeg}°`
+                    : '—'
+                }
+              />
+            </div>
+          </div>
 
           <aside className="space-y-4">
             <div className="rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
@@ -287,22 +377,49 @@ export function CameraViewPage() {
                 />
 
                 <InfoCard
+                  icon={<EyeIcon />}
+                  label="Область видимости"
+                  value={`${formatMeters(camera.coverage?.rangeMeters)} · ${camera.coverage?.fovDeg ?? '—'}°`}
+                />
+
+                <InfoCard
                   icon={<StreamIcon />}
                   label="Поток"
-                  value={stream ? `${stream.type.toUpperCase()} · ${stream.path}` : 'Недоступен'}
+                  value={
+                    stream
+                      ? `${stream.type.toUpperCase()} · ${stream.path}`
+                      : 'Недоступен'
+                  }
                 />
               </div>
             </div>
 
             <div className="rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
               <h2 className="text-xl font-extrabold text-[var(--color-text-primary)]">
-                Описание
+                Информация
               </h2>
 
-              <p className="mt-3 font-inter text-sm leading-6 text-[var(--color-text-secondary)]">
-                {camera.description ||
-                  'Описание камеры пока не добавлено. Позже здесь будет информация о ракурсе, месте установки, доступности потока и связанных экскурсиях.'}
-              </p>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <p className="font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+                    Создано
+                  </p>
+
+                  <p className="mt-1 font-inter text-sm font-semibold text-[var(--color-text-secondary)]">
+                    {formatDate(camera.createdAt)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+                    Обновлено
+                  </p>
+
+                  <p className="mt-1 font-inter text-sm font-semibold text-[var(--color-text-secondary)]">
+                    {formatDate(camera.updatedAt)}
+                  </p>
+                </div>
+              </div>
 
               <Link
                 to="/map"

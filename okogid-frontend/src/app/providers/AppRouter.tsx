@@ -27,6 +27,8 @@ import { AdminLayout } from '../../widgets/layouts/admin-layout/ui/AdminLayout';
 import { AdminUsersPage } from '../../pages/admin-users/ui/AdminUsersPage';
 import { AdminServicesPage } from '../../pages/admin-services/ui/AdminServicesPage';
 import { AdminPlaceholderPage } from '../../pages/admin/ui/AdminPlaceholderPage';
+import { AdminCamerasPage } from '../../pages/admin-cameras/ui/AdminCamerasPage';
+import { AdminCameraCreatePage } from '../../pages/admin-camera-create/ui/AdminCameraCreatePage';
 
 export function AppRouter() {
   return (
@@ -61,25 +63,9 @@ export function AppRouter() {
         <Route path="/admin-dashboard" element={<AdminLayout />}>
           <Route index element={<AdminPage />} />
 
-          <Route
-            path="cameras-add"
-            element={
-              <AdminPlaceholderPage
-                title="Добавить камеру"
-                description="Форма создания новой камеры: название, город, адрес, координаты, категория, статус и stream path."
-              />
-            }
-          />
+          <Route path="cameras-add" element={<AdminCameraCreatePage />} />
 
-          <Route
-            path="cameras"
-            element={
-              <AdminPlaceholderPage
-                title="Список камер"
-                description="Таблица всех камер с возможностью поиска, фильтрации, редактирования и отключения."
-              />
-            }
-          />
+          <Route path="cameras" element={<AdminCamerasPage />} />
 
           <Route path="users" element={<AdminUsersPage />} />
 

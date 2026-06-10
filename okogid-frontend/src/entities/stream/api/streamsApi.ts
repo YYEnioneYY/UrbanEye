@@ -1,11 +1,14 @@
-import { mapCameraFromApi, type ApiCamera } from '../../camera/api/cameraMapper';
+import {
+  mapCameraFromApi,
+  type ApiCamera,
+} from '../../camera/api/cameraMapper';
 import { API_CONFIG, createApiUrl } from '../../../shared/config/api';
 import type { CameraStreamResponse } from '../model/types';
 
 type ApiCameraStreamResponse = {
   camera: ApiCamera;
   stream: {
-    type: 'webrtc';
+    type: 'webrtc' | string;
     path: string;
     playerUrl: string;
     whepUrl: string;

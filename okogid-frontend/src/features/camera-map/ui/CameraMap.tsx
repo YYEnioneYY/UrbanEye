@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import type { Camera } from '../../../entities/camera/model/types';
 import {
   getCameraById,
-  getCameras,
+  getCamerasByBbox,
+  getCamerasLookingAt,
 } from '../../../entities/camera/api/camerasApi';
 
 import {
@@ -20,9 +21,174 @@ import { getMyGeoLocation } from '../api/getMyGeoLocation';
 import { createCameraMarkerElement } from '../lib/createCameraMarkerElement';
 import { createUserLocationMarkerElement } from '../lib/createUserLocationMarkerElement';
 import { getBrowserGeoLocation } from '../lib/getBrowserGeoLocation';
+import { createCameraCoverageGeoJson } from '../lib/createCameraCoverageGeoJson';
 
 import { CameraDetailsPanel } from './CameraDetailsPanel';
+import { LookingAtCamerasPanel } from './LookingAtCamerasPanel';
 import { MapBaseModeSwitcher } from './MapBaseModeSwitcher';
+import { MapContextMenu } from './MapContextMenu';
+
+type MapContextMenuState = {
+  x: number;
+  y: number;
+  lat: number;
+  lng: number;
+};
+
+type LookingAtPanelState = {
+  isOpen: boolean;
+  target: {
+    lat: number;
+    lng: number;
+  } | null;
+  cameras: Camera[];
+  isLoading: boolean;
+  error: string | null;
+};
+
+const INITIAL_LOOKING_AT_PANEL_STATE: LookingAtPanelState = {
+  isOpen: false,
+  target: null,
+  cameras: [],
+  isLoading: false,
+  error: null,
+};
+
+const CAMERA_COVERAGE_AREA_SOURCE_ID = 'camera-coverage-areas';
+const CAMERA_COVERAGE_OUTLINE_SOURCE_ID = 'camera-coverage-outlines';
+const CAMERA_COVERAGE_RAY_SOURCE_ID = 'camera-coverage-rays';
+
+const CAMERA_COVERAGE_FILL_LAYER_ID = 'camera-coverage-fill';
+const CAMERA_COVERAGE_OUTLINE_GLOW_LAYER_ID = 'camera-coverage-outline-glow';
+const CAMERA_COVERAGE_OUTLINE_LAYER_ID = 'camera-coverage-outline';
+const CAMERA_COVERAGE_RAY_LAYER_ID = 'camera-coverage-ray';
+
+function getMapBbox(map: maplibregl.Map) {
+  const bounds = map.getBounds();
+
+  const southWest = bounds.getSouthWest();
+  const northEast = bounds.getNorthEast();
+
+  return {
+    minLng: southWest.lng,
+    minLat: southWest.lat,
+    maxLng: northEast.lng,
+    maxLat: northEast.lat,
+  };
+}
+
+function ensureCameraCoverageLayers(map: maplibregl.Map) {
+  const emptyCoverage = createCameraCoverageGeoJson([], null);
+
+  if (!map.getSource(CAMERA_COVERAGE_AREA_SOURCE_ID)) {
+    map.addSource(CAMERA_COVERAGE_AREA_SOURCE_ID, {
+      type: 'geojson',
+      data: emptyCoverage.areas,
+    });
+  }
+
+  if (!map.getSource(CAMERA_COVERAGE_OUTLINE_SOURCE_ID)) {
+    map.addSource(CAMERA_COVERAGE_OUTLINE_SOURCE_ID, {
+      type: 'geojson',
+      data: emptyCoverage.outlines,
+    });
+  }
+
+  if (!map.getSource(CAMERA_COVERAGE_RAY_SOURCE_ID)) {
+    map.addSource(CAMERA_COVERAGE_RAY_SOURCE_ID, {
+      type: 'geojson',
+      data: emptyCoverage.rays,
+    });
+  }
+
+  if (!map.getLayer(CAMERA_COVERAGE_FILL_LAYER_ID)) {
+    map.addLayer({
+      id: CAMERA_COVERAGE_FILL_LAYER_ID,
+      type: 'fill',
+      source: CAMERA_COVERAGE_AREA_SOURCE_ID,
+      paint: {
+        'fill-color': '#FFD21E',
+        'fill-opacity': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          0.3,
+          0.11,
+        ],
+      },
+    });
+  }
+
+  if (!map.getLayer(CAMERA_COVERAGE_OUTLINE_GLOW_LAYER_ID)) {
+    map.addLayer({
+      id: CAMERA_COVERAGE_OUTLINE_GLOW_LAYER_ID,
+      type: 'line',
+      source: CAMERA_COVERAGE_OUTLINE_SOURCE_ID,
+      paint: {
+        'line-color': '#FFD21E',
+        'line-width': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          8,
+          5,
+        ],
+        'line-opacity': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          0.25,
+          0.1,
+        ],
+        'line-blur': 5,
+      },
+    });
+  }
+
+  if (!map.getLayer(CAMERA_COVERAGE_OUTLINE_LAYER_ID)) {
+    map.addLayer({
+      id: CAMERA_COVERAGE_OUTLINE_LAYER_ID,
+      type: 'line',
+      source: CAMERA_COVERAGE_OUTLINE_SOURCE_ID,
+      paint: {
+        'line-color': '#FFD21E',
+        'line-width': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          2.5,
+          1.4,
+        ],
+        'line-opacity': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          0.9,
+          0.35,
+        ],
+      },
+    });
+  }
+
+  if (!map.getLayer(CAMERA_COVERAGE_RAY_LAYER_ID)) {
+    map.addLayer({
+      id: CAMERA_COVERAGE_RAY_LAYER_ID,
+      type: 'line',
+      source: CAMERA_COVERAGE_RAY_SOURCE_ID,
+      paint: {
+        'line-color': '#FFD21E',
+        'line-width': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          2,
+          1,
+        ],
+        'line-opacity': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          0.75,
+          0.25,
+        ],
+        'line-dasharray': [2, 2],
+      },
+    });
+  }
+}
 
 export function CameraMap() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -32,11 +198,112 @@ export function CameraMap() {
   const userLocationMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   const mapBaseModeRef = useRef<MapBaseMode>('default');
+  const detailsAbortControllerRef = useRef<AbortController | null>(null);
+  const lookingAtAbortControllerRef = useRef<AbortController | null>(null);
+
+  const visibleCamerasRef = useRef<Camera[]>([]);
+  const selectedCameraIdRef = useRef<string | null>(null);
 
   const [mapBaseMode, setMapBaseMode] = useState<MapBaseMode>('default');
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
+  const [isCameraDetailsLoading, setIsCameraDetailsLoading] = useState(false);
+
   const [isCamerasLoading, setIsCamerasLoading] = useState(true);
   const [camerasError, setCamerasError] = useState<string | null>(null);
+
+  const [contextMenu, setContextMenu] =
+    useState<MapContextMenuState | null>(null);
+
+  const [lookingAtPanel, setLookingAtPanel] =
+    useState<LookingAtPanelState>(INITIAL_LOOKING_AT_PANEL_STATE);
+
+  const updateCameraCoverageLayers = () => {
+    const map = mapRef.current;
+
+    if (!map || !map.isStyleLoaded()) {
+      return;
+    }
+
+    ensureCameraCoverageLayers(map);
+
+    const coverageGeoJson = createCameraCoverageGeoJson(
+      visibleCamerasRef.current,
+      selectedCameraIdRef.current,
+    );
+
+    const areaSource = map.getSource(
+      CAMERA_COVERAGE_AREA_SOURCE_ID,
+    ) as maplibregl.GeoJSONSource | undefined;
+
+    const outlineSource = map.getSource(
+      CAMERA_COVERAGE_OUTLINE_SOURCE_ID,
+    ) as maplibregl.GeoJSONSource | undefined;
+
+    const raySource = map.getSource(
+      CAMERA_COVERAGE_RAY_SOURCE_ID,
+    ) as maplibregl.GeoJSONSource | undefined;
+
+    areaSource?.setData(coverageGeoJson.areas);
+    outlineSource?.setData(coverageGeoJson.outlines);
+    raySource?.setData(coverageGeoJson.rays);
+  };
+
+  const selectCamera = useCallback(async (camera: Camera) => {
+    selectedCameraIdRef.current = camera.id;
+    updateCameraCoverageLayers();
+
+    setLookingAtPanel((prev) => ({
+      ...prev,
+      isOpen: false,
+    }));
+
+    setSelectedCamera(camera);
+
+    const map = mapRef.current;
+
+    if (map) {
+      map.easeTo({
+        center: [camera.longitude, camera.latitude],
+        zoom: Math.max(map.getZoom(), 14),
+        duration: 700,
+        offset: [-220, 0],
+      });
+    }
+
+    detailsAbortControllerRef.current?.abort();
+
+    const abortController = new AbortController();
+    detailsAbortControllerRef.current = abortController;
+
+    try {
+      setIsCameraDetailsLoading(true);
+
+      const freshCamera = await getCameraById(
+        camera.id,
+        abortController.signal,
+      );
+
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      setSelectedCamera(freshCamera);
+
+      visibleCamerasRef.current = visibleCamerasRef.current.map((item) =>
+        item.id === freshCamera.id ? freshCamera : item,
+      );
+
+      updateCameraCoverageLayers();
+    } catch (error) {
+      if (!abortController.signal.aborted) {
+        console.warn('Failed to load camera details:', error);
+      }
+    } finally {
+      if (!abortController.signal.aborted) {
+        setIsCameraDetailsLoading(false);
+      }
+    }
+  }, []);
 
   const handleMapBaseModeChange = (nextMode: MapBaseMode) => {
     if (mapBaseModeRef.current === nextMode) {
@@ -58,6 +325,82 @@ export function CameraMap() {
     }
 
     map.setStyle(getCurrentMapStyle('default'));
+
+    map.once('idle', () => {
+      updateCameraCoverageLayers();
+    });
+  };
+
+  const handleCloseCameraDetails = () => {
+    selectedCameraIdRef.current = null;
+    setSelectedCamera(null);
+    updateCameraCoverageLayers();
+  };
+
+  const handleFindLookingAt = async () => {
+    if (!contextMenu) {
+      return;
+    }
+
+    const target = {
+      lat: contextMenu.lat,
+      lng: contextMenu.lng,
+    };
+
+    setContextMenu(null);
+    setSelectedCamera(null);
+
+    lookingAtAbortControllerRef.current?.abort();
+
+    const abortController = new AbortController();
+    lookingAtAbortControllerRef.current = abortController;
+
+    setLookingAtPanel({
+      isOpen: true,
+      target,
+      cameras: [],
+      isLoading: true,
+      error: null,
+    });
+
+    try {
+      const cameras = await getCamerasLookingAt(
+        {
+          lat: target.lat,
+          lng: target.lng,
+        },
+        abortController.signal,
+      );
+
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      setLookingAtPanel({
+        isOpen: true,
+        target,
+        cameras,
+        isLoading: false,
+        error: null,
+      });
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Не удалось найти камеры, которые смотрят в эту точку';
+
+      setLookingAtPanel({
+        isOpen: true,
+        target,
+        cameras: [],
+        isLoading: false,
+        error: message,
+      });
+    }
   };
 
   useEffect(() => {
@@ -66,7 +409,9 @@ export function CameraMap() {
     }
 
     let isActive = true;
-    const abortController = new AbortController();
+    let camerasAbortController: AbortController | null = null;
+
+    const pageAbortController = new AbortController();
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
@@ -85,32 +430,6 @@ export function CameraMap() {
       cameraMarkersRef.current = [];
     }
 
-    async function handleCameraClick(camera: Camera) {
-      setSelectedCamera(camera);
-
-      map.easeTo({
-        center: [camera.longitude, camera.latitude],
-        zoom: Math.max(map.getZoom(), 14),
-        duration: 700,
-        offset: [-220, 0],
-      });
-
-      try {
-        const freshCamera = await getCameraById(
-          camera.id,
-          abortController.signal,
-        );
-
-        if (!isActive) {
-          return;
-        }
-
-        setSelectedCamera(freshCamera);
-      } catch (error) {
-        console.warn('Failed to load camera details:', error);
-      }
-    }
-
     function renderCameraMarkers(cameras: Camera[]) {
       clearCameraMarkers();
 
@@ -122,7 +441,7 @@ export function CameraMap() {
         );
 
         button?.addEventListener('click', () => {
-          handleCameraClick(camera);
+          selectCamera(camera);
         });
 
         return new maplibregl.Marker({
@@ -134,6 +453,54 @@ export function CameraMap() {
       });
 
       cameraMarkersRef.current = markers;
+    }
+
+    async function loadCamerasByCurrentBbox() {
+      camerasAbortController?.abort();
+
+      const currentAbortController = new AbortController();
+      camerasAbortController = currentAbortController;
+
+      try {
+        setIsCamerasLoading(true);
+        setCamerasError(null);
+
+        const bbox = getMapBbox(map);
+
+        const cameras = await getCamerasByBbox(
+          {
+            minLng: bbox.minLng,
+            minLat: bbox.minLat,
+            maxLng: bbox.maxLng,
+            maxLat: bbox.maxLat,
+          },
+          currentAbortController.signal,
+        );
+
+        if (!isActive || currentAbortController.signal.aborted) {
+          return;
+        }
+
+        visibleCamerasRef.current = cameras;
+
+        renderCameraMarkers(cameras);
+        updateCameraCoverageLayers();
+      } catch (error) {
+        if (!isActive || currentAbortController.signal.aborted) {
+          return;
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Не удалось загрузить камеры';
+
+        setCamerasError(message);
+      } finally {
+        if (isActive && !currentAbortController.signal.aborted) {
+          setIsCamerasLoading(false);
+        }
+      }
     }
 
     async function handleFindMe() {
@@ -175,6 +542,27 @@ export function CameraMap() {
       }
     }
 
+    const handleMapContextMenu = (event: maplibregl.MapMouseEvent) => {
+      event.originalEvent.preventDefault();
+
+      setContextMenu({
+        x: event.point.x,
+        y: event.point.y,
+        lat: event.lngLat.lat,
+        lng: event.lngLat.lng,
+      });
+    };
+
+    const handleMapClick = () => {
+      setContextMenu(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setContextMenu(null);
+      }
+    };
+
     const handleThemeChange = (event: Event) => {
       const themeEvent = event as CustomEvent<{
         mode: 'light' | 'dark' | 'auto';
@@ -186,14 +574,22 @@ export function CameraMap() {
       }
 
       map.setStyle(MAP_STYLES[themeEvent.detail.resolvedTheme]);
+
+      map.once('idle', () => {
+        updateCameraCoverageLayers();
+      });
     };
 
     window.addEventListener(MAP_EVENTS.findMe, handleFindMe);
     window.addEventListener('okogid-theme-change', handleThemeChange);
+    window.addEventListener('keydown', handleEscape);
+
+    map.on('contextmenu', handleMapContextMenu);
+    map.on('click', handleMapClick);
 
     map.once('load', async () => {
       try {
-        const geo = await getMyGeoLocation(abortController.signal);
+        const geo = await getMyGeoLocation(pageAbortController.signal);
 
         if (isActive) {
           map.easeTo({
@@ -215,41 +611,26 @@ export function CameraMap() {
         });
       }
 
-      try {
-        setIsCamerasLoading(true);
-        setCamerasError(null);
-
-        const cameras = await getCameras(abortController.signal);
-
-        if (!isActive) {
-          return;
-        }
-
-        renderCameraMarkers(cameras);
-      } catch (error) {
-        if (!isActive) {
-          return;
-        }
-
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Не удалось загрузить камеры';
-
-        setCamerasError(message);
-      } finally {
-        if (isActive) {
-          setIsCamerasLoading(false);
-        }
-      }
+      await loadCamerasByCurrentBbox();
     });
+
+    map.on('moveend', loadCamerasByCurrentBbox);
 
     return () => {
       isActive = false;
-      abortController.abort();
+
+      pageAbortController.abort();
+      camerasAbortController?.abort();
+      detailsAbortControllerRef.current?.abort();
+      lookingAtAbortControllerRef.current?.abort();
+
+      map.off('moveend', loadCamerasByCurrentBbox);
+      map.off('contextmenu', handleMapContextMenu);
+      map.off('click', handleMapClick);
 
       window.removeEventListener(MAP_EVENTS.findMe, handleFindMe);
       window.removeEventListener('okogid-theme-change', handleThemeChange);
+      window.removeEventListener('keydown', handleEscape);
 
       userLocationMarkerRef.current?.remove();
       userLocationMarkerRef.current = null;
@@ -259,7 +640,7 @@ export function CameraMap() {
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [selectCamera]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -277,14 +658,34 @@ export function CameraMap() {
         </div>
       )}
 
+      {contextMenu && (
+        <MapContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onFindLookingAt={handleFindLookingAt}
+        />
+      )}
+
       <MapBaseModeSwitcher
         value={mapBaseMode}
         onChange={handleMapBaseModeChange}
       />
 
+      <LookingAtCamerasPanel
+        isOpen={lookingAtPanel.isOpen}
+        target={lookingAtPanel.target}
+        cameras={lookingAtPanel.cameras}
+        isLoading={lookingAtPanel.isLoading}
+        error={lookingAtPanel.error}
+        onClose={() => setLookingAtPanel(INITIAL_LOOKING_AT_PANEL_STATE)}
+        onCameraClick={selectCamera}
+      />
+
       <CameraDetailsPanel
         camera={selectedCamera}
-        onClose={() => setSelectedCamera(null)}
+        isLoading={isCameraDetailsLoading}
+        onClose={handleCloseCameraDetails}
       />
     </div>
   );

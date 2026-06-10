@@ -4,6 +4,7 @@ import type { Camera } from '../../../entities/camera/model/types';
 
 type CameraDetailsPanelProps = {
   camera: Camera | null;
+  isLoading?: boolean;
   onClose: () => void;
 };
 
@@ -35,8 +36,21 @@ function getCategoryLabel(category: string) {
   return categories[category] ?? category;
 }
 
+function formatDate(value?: string) {
+  if (!value) return '—';
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
 export function CameraDetailsPanel({
   camera,
+  isLoading = false,
   onClose,
 }: CameraDetailsPanelProps) {
   const isOpen = Boolean(camera);
@@ -57,9 +71,17 @@ export function CameraDetailsPanel({
         <div className="flex max-h-[calc(100vh-32px)] flex-col">
           <div className="flex items-start justify-between border-b border-[var(--color-border)] px-5 py-4">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                Камера
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                  Камера
+                </p>
+
+                {isLoading && (
+                  <span className="rounded-full bg-[var(--color-bg-soft)] px-2 py-0.5 font-inter text-[10px] font-bold text-[var(--color-text-secondary)]">
+                    обновляем
+                  </span>
+                )}
+              </div>
 
               <h2 className="mt-1 line-clamp-2 text-xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
                 {camera.title}
@@ -137,23 +159,61 @@ export function CameraDetailsPanel({
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-3 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase text-[var(--color-text-muted)]">
-                    Тип
+                    Просмотры
                   </p>
 
                   <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
-                    IP-камера
+                    {camera.viewsCount ?? 0}
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-3 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase text-[var(--color-text-muted)]">
-                    Поток
+                    Дальность
                   </p>
 
                   <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
-                    {camera.streamEndpoint ? 'Доступен' : 'Скоро'}
+                    {camera.coverage?.rangeMeters
+                      ? `${camera.coverage.rangeMeters} м`
+                      : '—'}
                   </p>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase text-[var(--color-text-muted)]">
+                    Угол обзора
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
+                    {camera.coverage?.fovDeg
+                      ? `${camera.coverage.fovDeg}°`
+                      : '—'}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase text-[var(--color-text-muted)]">
+                    Направление
+                  </p>
+
+                  <p className="mt-1 text-sm font-bold text-[var(--color-text-primary)]">
+                    {camera.coverage?.directionDeg
+                      ? `${camera.coverage.directionDeg}°`
+                      : '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-3 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase text-[var(--color-text-muted)]">
+                  Обновлено
+                </p>
+
+                <p className="mt-1 font-inter text-sm font-bold text-[var(--color-text-primary)]">
+                  {formatDate(camera.updatedAt)}
+                </p>
               </div>
             </div>
           </div>

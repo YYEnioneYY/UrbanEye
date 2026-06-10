@@ -1,7 +1,7 @@
 import type { CameraStream } from '../../../entities/stream/model/types';
 
 type CameraPlayerProps = {
-  stream?: CameraStream | null;
+  stream: CameraStream | null;
   title: string;
 };
 

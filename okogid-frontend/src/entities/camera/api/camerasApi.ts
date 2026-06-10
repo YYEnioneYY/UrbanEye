@@ -2,6 +2,18 @@ import { API_CONFIG, createApiUrl } from '../../../shared/config/api';
 import type { Camera } from '../model/types';
 import { mapCameraFromApi, type ApiCamera } from './cameraMapper';
 
+export type CamerasBboxParams = {
+  minLng: number;
+  minLat: number;
+  maxLng: number;
+  maxLat: number;
+};
+
+export type CamerasLookingAtParams = {
+  lat: number;
+  lng: number;
+};
+
 async function getApiErrorMessage(response: Response) {
   try {
     const data = (await response.json()) as {
@@ -27,14 +39,30 @@ async function getApiErrorMessage(response: Response) {
   }
 }
 
-export async function getCameras(signal?: AbortSignal): Promise<Camera[]> {
-  const response = await fetch(createApiUrl(API_CONFIG.apiBaseUrl, '/cameras'), {
-    method: 'GET',
-    signal,
-    headers: {
-      Accept: 'application/json',
+export async function getCamerasByBbox(
+  params: CamerasBboxParams,
+  signal?: AbortSignal,
+): Promise<Camera[]> {
+  const searchParams = new URLSearchParams();
+
+  searchParams.set('minLng', String(params.minLng));
+  searchParams.set('minLat', String(params.minLat));
+  searchParams.set('maxLng', String(params.maxLng));
+  searchParams.set('maxLat', String(params.maxLat));
+
+  const response = await fetch(
+    createApiUrl(
+      API_CONFIG.apiBaseUrl,
+      `/cameras/bbox?${searchParams.toString()}`,
+    ),
+    {
+      method: 'GET',
+      signal,
+      headers: {
+        Accept: 'application/json',
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     const message = await getApiErrorMessage(response);
@@ -69,4 +97,37 @@ export async function getCameraById(
   const data = (await response.json()) as ApiCamera;
 
   return mapCameraFromApi(data);
+}
+
+export async function getCamerasLookingAt(
+  params: CamerasLookingAtParams,
+  signal?: AbortSignal,
+): Promise<Camera[]> {
+  const searchParams = new URLSearchParams();
+
+  searchParams.set('lat', String(params.lat));
+  searchParams.set('lng', String(params.lng));
+
+  const response = await fetch(
+    createApiUrl(
+      API_CONFIG.apiBaseUrl,
+      `/cameras/looking-at?${searchParams.toString()}`,
+    ),
+    {
+      method: 'GET',
+      signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const message = await getApiErrorMessage(response);
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as ApiCamera[];
+
+  return data.map(mapCameraFromApi);
 }
