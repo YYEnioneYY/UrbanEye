@@ -11,6 +11,8 @@ import { RegisterPage } from '../../pages/register/ui/RegisterPage';
 import { ForgotPasswordPage } from '../../pages/forgot-password/ui/ForgotPasswordPage';
 import { ResetPasswordPage } from '../../pages/reset-password/ui/ResetPasswordPage';
 import { ProfilePage } from '../../pages/profile/ui/ProfilePage';
+import { CamerasListPage } from '../../pages/cameras-list/ui/CamerasListPage';
+import { CamerasMonitorPage } from '../../pages/cameras-monitor/ui/CamerasMonitorPage';
 
 import { NotFoundPage } from '../../pages/not-found/ui/NotFoundPage';
 
@@ -19,6 +21,7 @@ import { MapLayout } from '../../widgets/layouts/map-layout/ui/MapLayout'
 import { CameraViewLayout } from '../../widgets/layouts/camera-view-layout/ui/CameraViewLayout';
 import { AuthLayout } from '../../widgets/layouts/auth-layout/ui/AuthLayout';
 import { ProfileLayout } from '../../widgets/layouts/profile-layout/ui/ProfileLayout';
+import { CamerasListLayout } from '../../widgets/layouts/cameras-list-layout/ui/CamerasListLayout';
 
 /* Admin */
 import { AdminPage } from '../../pages/admin/ui/AdminPage';
@@ -42,6 +45,11 @@ export function AppRouter() {
 
       <Route element={<MapLayout />}>
         <Route path="/map" element={<MapPage />} />
+      </Route>
+
+      <Route element={<CamerasListLayout />}>
+        <Route path="/cameras" element={<CamerasListPage />} />
+        <Route path="/cameras-monitor" element={<CamerasMonitorPage />} />
       </Route>
 
       <Route element={<CameraViewLayout />}>

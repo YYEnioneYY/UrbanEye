@@ -14,6 +14,29 @@ export type CamerasLookingAtParams = {
   lng: number;
 };
 
+export type CamerasListQueryParams = {
+  page: number;
+  limit: number;
+  search?: string;
+  status?: string;
+  city?: string;
+  category?: string;
+};
+
+export type CamerasListMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
+
+export type CamerasListResponse = {
+  data: Camera[];
+  meta: CamerasListMeta;
+};
+
 async function getApiErrorMessage(response: Response) {
   try {
     const data = (await response.json()) as {
@@ -130,4 +153,56 @@ export async function getCamerasLookingAt(
   const data = (await response.json()) as ApiCamera[];
 
   return data.map(mapCameraFromApi);
+}
+
+export async function getCamerasList(
+  params: CamerasListQueryParams,
+  signal?: AbortSignal,
+): Promise<CamerasListResponse> {
+  const searchParams = new URLSearchParams();
+
+  searchParams.set('page', String(params.page));
+  searchParams.set('limit', String(params.limit));
+
+  if (params.search?.trim()) {
+    searchParams.set('search', params.search.trim());
+  }
+
+  if (params.status?.trim()) {
+    searchParams.set('status', params.status.trim());
+  }
+
+  if (params.city?.trim()) {
+    searchParams.set('city', params.city.trim());
+  }
+
+  if (params.category?.trim()) {
+    searchParams.set('category', params.category.trim());
+  }
+
+  const response = await fetch(
+    createApiUrl(API_CONFIG.apiBaseUrl, `/cameras?${searchParams.toString()}`),
+    {
+      method: 'GET',
+      signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const message = await getApiErrorMessage(response);
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as {
+    data: ApiCamera[];
+    meta: CamerasListMeta;
+  };
+
+  return {
+    data: data.data.map(mapCameraFromApi),
+    meta: data.meta,
+  };
 }
