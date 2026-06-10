@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CameraHttpClientService } from '../camera-http-client/camera-http-client.service';
 import { MediamtxService } from '../mediamtx/mediamtx.service';
+import { TranscodingService } from '../transcoding/transcoding.service';
 
 @Injectable()
 export class StreamsService {
   constructor(
     private readonly cameraHttpClientService: CameraHttpClientService,
     private readonly mediamtxService: MediamtxService,
+    private readonly transcodingService: TranscodingService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -23,7 +25,18 @@ export class StreamsService {
       cameraData.connection.password,
     );
 
-    await this.mediamtxService.ensureRtspPath(path, rtspUrl);
+    const shouldTranscode =
+      this.configService.get<string>('FORCE_TRANSCODING') === 'true';
+
+    let finalPath = path;
+
+    if (shouldTranscode) {
+      finalPath = `transcoded-${path}`;
+    
+      this.transcodingService.ensureTranscoding(rtspUrl, finalPath);
+    } else {
+      await this.mediamtxService.ensureRtspPath(path, rtspUrl);
+    }
 
     await this.cameraHttpClientService.incrementViews(cameraId);
 
@@ -31,9 +44,9 @@ export class StreamsService {
       camera: cameraData.camera,
       stream: {
         type: 'webrtc' as const,
-        path,
-        playerUrl: this.buildPlayerUrl(path),
-        whepUrl: this.buildWhepUrl(path),
+        path: finalPath,
+        playerUrl: this.buildPlayerUrl(finalPath),
+        whepUrl: this.buildWhepUrl(finalPath),
       },
     };
   }

@@ -170,17 +170,18 @@ services:
     container_name: camera-mediamtx
     restart: unless-stopped
     ports:
-      - "8554:8554"
       - "8889:8889"
       - "8189:8189/udp"
     expose:
+      - "8554"
       - "9997"
-      - "9998"
     volumes:
       - ./stream-service/mediamtx.yml:/mediamtx.yml:ro
     networks:
-      - okogid-network
-
+      okogid-network:
+        aliases:
+          - camera-mediamtx
+  
   camera-stream-api:
     build:
       context: ./stream-service
@@ -191,20 +192,26 @@ services:
       MEDIAMTX_API_URL: http://camera-mediamtx:9997
       MEDIAMTX_API_USER: stream_service
       MEDIAMTX_API_PASSWORD: stream_service_password
+  
+      MEDIAMTX_RTSP_INTERNAL_URL: "rtsp://stream_service:stream_service_password@camera-mediamtx:8554"
       MEDIAMTX_WEBRTC_PUBLIC_URL: http://localhost:8889
-
+  
+      FORCE_TRANSCODING: "true"
+  
       KAFKA_BROKERS: kafka:9092
       KAFKA_CLIENT_ID: camera-stream-service
       KAFKA_GROUP_ID: camera-stream-service-consumer
-
+  
       CAMERA_SERVICE_INTERNAL_URL: http://camera-service:3000
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+  
+      KAFKAJS_NO_PARTITIONER_WARNING: "1"
     depends_on:
+      camera-mediamtx:
+        condition: service_started
       kafka:
         condition: service_healthy
       camera-service:
-        condition: service_started
-      camera-mediamtx:
         condition: service_started
     networks:
       - okogid-network

@@ -13,7 +13,7 @@ authInternalUsers:
       - action: playback
         path:
 
-  # Пользователь для NestJS Stream Service.
+  # Пользователь для NestJS Stream Service и FFmpeg-публикации.
   - user: stream_service
     pass: stream_service_password
     ips: []
@@ -21,6 +21,8 @@ authInternalUsers:
       - action: api
       - action: metrics
       - action: pprof
+      - action: publish
+        path:
 
 api: yes
 apiAddress: :9997
@@ -36,12 +38,10 @@ webrtc: yes
 webrtcAddress: :8889
 webrtcLocalUDPAddress: :8189
 
-# Для локальной разработки.
-# На сервере сюда нужно будет добавить внешний домен/IP.
 webrtcAdditionalHosts: [localhost]
 
 pathDefaults:
-  sourceOnDemand: yes
   rtspTransport: tcp
 
-paths: {}
+paths:
+  all_others:

@@ -3,9 +3,10 @@ import { CameraHttpClientModule } from '../camera-http-client/camera-http-client
 import { MediamtxModule } from '../mediamtx/mediamtx.module';
 import { StreamsController } from './streams.controller';
 import { StreamsService } from './streams.service';
+import { TranscodingModule } from '../transcoding/transcoding.module';
 
 @Module({
-  imports: [CameraHttpClientModule, MediamtxModule],
+  imports: [CameraHttpClientModule, MediamtxModule, TranscodingModule],
   controllers: [StreamsController],
   providers: [StreamsService],
 })
