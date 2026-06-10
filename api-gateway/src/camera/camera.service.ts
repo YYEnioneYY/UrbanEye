@@ -60,4 +60,13 @@ export class CameraService {
       },
     );
   }
+
+  findById(cameraId: string): Promise<PublicCameraDto> {
+    return this.kafkaClientService.send<PublicCameraDto>(
+      'camera.public.cameras.find_by_id',
+      {
+        cameraId,
+      },
+    );
+  }
 }

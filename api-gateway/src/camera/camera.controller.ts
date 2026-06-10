@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -52,6 +52,16 @@ export class CameraController {
   })
   findLookingAtPoint(@Query() query: CamerasLookingAtPointQueryDto) {
     return this.cameraService.findLookingAtPoint(query);
+  }
+
+  @Get('cameras/:cameraId')
+  @ApiOperation({ summary: 'Получить камеру по id без секретов' })
+  @ApiOkResponse({ type: PublicCameraDto })
+  findById(
+    @Param('cameraId', new ParseUUIDPipe({ version: '4' }))
+    cameraId: string,
+  ) {
+    return this.cameraService.findById(cameraId);
   }
 
   @Get('admin/cameras')
