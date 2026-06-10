@@ -628,4 +628,42 @@ export class CameraService {
       viewsCount: Number(camera.views_count),
     };
   }
+
+  async findById(cameraId: string): Promise<PublicCamera> {
+    const rows = await this.prisma.$queryRaw<CameraRow[]>(Prisma.sql`
+      SELECT
+        c.id::text,
+        c.title,
+        c.slug,
+        c.description,
+        c.status::text as status,
+        c.city,
+        c.address,
+        c.category,
+        ST_Y(c.location::geometry) as latitude,
+        ST_X(c.location::geometry) as longitude,
+        c.direction_deg,
+        c.fov_deg,
+        c.range_meters,
+        c.views_count,
+        c.created_at,
+        c.updated_at
+      FROM cameras c
+      WHERE c.id = CAST(${cameraId} AS uuid)
+        AND c.deleted_at IS NULL
+      LIMIT 1;
+    `);
+
+    const camera = rows[0];
+
+    if (!camera) {
+      throw new RpcException({
+        statusCode: 404,
+        code: 'CAMERA_NOT_FOUND',
+        message: 'Camera not found',
+      });
+    }
+
+    return this.mapPublicCamera(camera);
+  }
 } 
