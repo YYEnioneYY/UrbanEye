@@ -36,9 +36,9 @@ export function CamerasListLayout() {
     <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={() => navigate('/map')}
         className="fixed left-5 top-5 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--navbar-bg)] text-[var(--color-text-primary)] shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl transition hover:scale-105 hover:text-[var(--color-primary)]"
-        aria-label="Назад"
+        aria-label="Вернуться на карту"
       >
         <ArrowLeftIcon />
       </button>
