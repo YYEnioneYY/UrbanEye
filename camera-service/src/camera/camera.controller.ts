@@ -7,6 +7,8 @@ import { FindCamerasByBboxDto } from './dto/find-cameras-by-bbox.dto';
 import { FindPublicCamerasDto } from './dto/find-public-cameras.dto';
 import { FindCamerasLookingAtPointDto } from './dto/find-cameras-looking-at-point.dto';
 import { FindCameraByIdDto } from './dto/find-camera-by-id.dto';
+import { DeleteCameraDto } from './dto/delete-camera.dto';
+import { UpdateCameraPayloadDto } from './dto/update-camera.dto';
 
 @Controller()
 export class CameraController {
@@ -25,6 +27,16 @@ export class CameraController {
   @MessagePattern('camera.admin.cameras.find_all')
   findAllAdmin(@Payload() dto: FindAdminCamerasDto) {
     return this.cameraService.findAllAdmin(dto);
+  }
+
+  @MessagePattern('camera.admin.cameras.update')
+  update(@Payload() dto: UpdateCameraPayloadDto) {
+    return this.cameraService.update(dto.cameraId, dto);
+  }
+  
+  @MessagePattern('camera.admin.cameras.delete')
+  delete(@Payload() dto: DeleteCameraDto) {
+    return this.cameraService.delete(dto.cameraId);
   }
 
   @MessagePattern('camera.public.cameras.find_all')
