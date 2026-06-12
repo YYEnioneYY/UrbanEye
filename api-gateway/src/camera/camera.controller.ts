@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -15,6 +25,7 @@ import { PublicCameraDto } from './dto/public-camera.dto';
 import { PublicCameraListResponseDto } from './dto/public-camera-list-response.dto';
 import { PublicCameraQueryDto } from './dto/public-camera-query.dto';
 import { CamerasLookingAtPointQueryDto } from './dto/cameras-looking-at-point-query.dto';
+import { UpdateCameraDto } from './dto/update-camera.dto';
 
 @ApiTags('Cameras')
 @Controller()
@@ -72,5 +83,29 @@ export class CameraController {
   })
   findAllAdmin(@Query() query: AdminCameraQueryDto) {
     return this.cameraService.findAllAdmin(query);
+  }
+
+  @Patch('admin/cameras/:cameraId')
+  @Auth('admin')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Обновить данные камеры' })
+  @ApiOkResponse({ type: PublicCameraDto })
+  update(
+    @Param('cameraId', new ParseUUIDPipe({ version: '4' }))
+    cameraId: string,
+    @Body() dto: UpdateCameraDto,
+  ) {
+    return this.cameraService.update(cameraId, dto);
+  }
+  
+  @Delete('admin/cameras/:cameraId')
+  @Auth('admin')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Удалить камеру' })
+  delete(
+    @Param('cameraId', new ParseUUIDPipe({ version: '4' }))
+    cameraId: string,
+  ) {
+    return this.cameraService.delete(cameraId);
   }
 }

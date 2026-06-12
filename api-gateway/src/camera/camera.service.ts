@@ -7,6 +7,7 @@ import { PublicCameraDto } from './dto/public-camera.dto';
 import { PublicCameraListResponseDto } from './dto/public-camera-list-response.dto';
 import { PublicCameraQueryDto } from './dto/public-camera-query.dto';
 import { CamerasLookingAtPointQueryDto } from './dto/cameras-looking-at-point-query.dto';
+import { UpdateCameraDto } from './dto/update-camera.dto';
 
 @Injectable()
 export class CameraService {
@@ -68,5 +69,21 @@ export class CameraService {
         cameraId,
       },
     );
+  }
+
+  update(cameraId: string, dto: UpdateCameraDto): Promise<PublicCameraDto> {
+    return this.kafkaClientService.send<PublicCameraDto>(
+      'camera.admin.cameras.update',
+      {
+        cameraId,
+        ...dto,
+      },
+    );
+  }
+  
+  delete(cameraId: string) {
+    return this.kafkaClientService.send('camera.admin.cameras.delete', {
+      cameraId,
+    });
   }
 }
