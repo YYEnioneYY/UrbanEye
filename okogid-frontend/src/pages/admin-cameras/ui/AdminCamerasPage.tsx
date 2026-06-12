@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { getAdminCameras } from '../../../entities/camera/api/adminCamerasApi';
+import {
+  deleteAdminCamera,
+  getAdminCameras,
+} from '../../../entities/camera/api/adminCamerasApi';
+import { AdminCameraEditModal } from './AdminCameraEditModal';
+
 import type {
   AdminCamera,
   AdminCamerasMeta,
@@ -132,6 +137,14 @@ export function AdminCamerasPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedCameraForEdit, setSelectedCameraForEdit] =
+  useState<AdminCamera | null>(null);
+
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [deletingCameraId, setDeletingCameraId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
   const camerasCountLabel = useMemo(() => {
     if (meta.total === 0) return 'Нет камер';
 
@@ -192,7 +205,7 @@ export function AdminCamerasPage() {
     return () => {
       abortController.abort();
     };
-  }, [page, limit, debouncedSearch, includeDeleted]);
+  }, [page, limit, debouncedSearch, includeDeleted, reloadKey]);
 
   const handleLimitChange = (nextLimit: number) => {
     setLimit(nextLimit);
@@ -202,6 +215,41 @@ export function AdminCamerasPage() {
   const handleIncludeDeletedChange = (checked: boolean) => {
     setIncludeDeleted(checked);
     setPage(1);
+  };
+
+  const handleDeleteCamera = async (camera: AdminCamera) => {
+    const isConfirmed = window.confirm(
+      `Удалить камеру "${camera.title}"? Это действие пометит камеру как удалённую.`,
+    );
+
+    if (!isConfirmed) {
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    try {
+      setActionError(null);
+      setActionSuccess(null);
+      setDeletingCameraId(camera.id);
+
+      const response = await deleteAdminCamera(camera.id, abortController.signal);
+
+      setActionSuccess(
+        `Камера удалена. deletedAt: ${new Date(
+          response.deletedAt,
+        ).toLocaleString('ru-RU')}`,
+      );
+
+      setReloadKey((prev) => prev + 1);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Не удалось удалить камеру';
+
+      setActionError(message);
+    } finally {
+      setDeletingCameraId(null);
+    }
   };
 
   return (
@@ -276,6 +324,18 @@ export function AdminCamerasPage() {
         </div>
       )}
 
+      {actionError && (
+        <div className="mb-5 rounded-[24px] border border-red-500/20 bg-red-500/10 px-5 py-4 font-inter text-sm font-semibold text-red-600">
+          {actionError}
+        </div>
+      )}
+
+      {actionSuccess && (
+        <div className="mb-5 rounded-[24px] border border-green-500/20 bg-green-500/10 px-5 py-4 font-inter text-sm font-semibold text-green-600">
+          {actionSuccess}
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
         <div className="border-b border-[var(--color-border)] px-5 py-4">
           <div className="flex items-center justify-between gap-4">
@@ -336,6 +396,10 @@ export function AdminCamerasPage() {
 
                   <th className="px-5 py-4 font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
                     Состояние
+                  </th>
+
+                  <th className="px-5 py-4 font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+                    Действия
                   </th>
                 </tr>
               </thead>
@@ -475,6 +539,27 @@ export function AdminCamerasPage() {
                           </span>
                         )}
                       </td>
+
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCameraForEdit(camera)}
+                            className="h-10 rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface-solid)] px-4 font-inter text-xs font-bold text-[var(--color-text-primary)] transition hover:text-[var(--color-primary)]"
+                          >
+                            Изменить
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={Boolean(camera.deletedAt) || deletingCameraId === camera.id}
+                            onClick={() => handleDeleteCamera(camera)}
+                            className="h-10 rounded-[14px] border border-red-500/20 bg-red-500/10 px-4 font-inter text-xs font-bold text-red-600 transition hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-red-500/10 disabled:hover:text-red-600"
+                          >
+                            {deletingCameraId === camera.id ? 'Удаляем...' : 'Удалить'}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -513,6 +598,18 @@ export function AdminCamerasPage() {
           </div>
         </div>
       </div>
+
+      {selectedCameraForEdit && (
+        <AdminCameraEditModal
+          camera={selectedCameraForEdit}
+          onClose={() => setSelectedCameraForEdit(null)}
+          onUpdated={() => {
+            setActionError(null);
+            setActionSuccess('Камера успешно обновлена');
+            setReloadKey((prev) => prev + 1);
+          }}
+        />
+      )}
     </section>
   );
 }

@@ -13,6 +13,13 @@ export type AdminCamerasQueryParams = {
   includeDeleted: boolean;
 };
 
+export type UpdateAdminCameraPayload = CreateAdminCameraPayload;
+
+export type DeleteAdminCameraResponse = {
+  cameraId: string;
+  deletedAt: string;
+};
+
 export type CreateAdminCameraPayload = {
   title: string;
   slug: string;
@@ -198,4 +205,55 @@ export async function createAdminCamera(
   const data = (await response.json()) as ApiAdminCamera;
 
   return mapAdminCameraFromApi(data);
+}
+
+export async function updateAdminCamera(
+  cameraId: string,
+  payload: UpdateAdminCameraPayload,
+  signal?: AbortSignal,
+): Promise<AdminCamera> {
+  const response = await authFetch(
+    createApiUrl(API_CONFIG.apiBaseUrl, `/admin/cameras/${cameraId}`),
+    {
+      method: 'PATCH',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    const message = await getApiErrorMessage(response);
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as ApiAdminCamera;
+
+  return mapAdminCameraFromApi(data);
+}
+
+export async function deleteAdminCamera(
+  cameraId: string,
+  signal?: AbortSignal,
+): Promise<DeleteAdminCameraResponse> {
+  const response = await authFetch(
+    createApiUrl(API_CONFIG.apiBaseUrl, `/admin/cameras/${cameraId}`),
+    {
+      method: 'DELETE',
+      signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const message = await getApiErrorMessage(response);
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<DeleteAdminCameraResponse>;
 }
