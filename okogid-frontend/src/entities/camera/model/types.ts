@@ -1,4 +1,4 @@
-export type CameraStatus = 'online' | 'offline' | 'maintenance';
+export type CameraStatus = 'online' | 'offline' | 'maintenance' | 'planned';
 
 export type CameraCoverage = {
   directionDeg: number;

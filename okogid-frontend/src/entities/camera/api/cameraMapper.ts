@@ -51,6 +51,10 @@ function mapCameraStatus(apiCamera: ApiCamera): CameraStatus {
     return 'maintenance';
   }
 
+  if (apiCamera.status === 'planned') {
+    return 'planned';
+  }
+
   return 'offline';
 }
 

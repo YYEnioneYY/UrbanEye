@@ -5,6 +5,7 @@ import type { Camera } from '../../../entities/camera/model/types';
 import {
   getCamerasList,
   type CamerasListMeta,
+  type ViewsSort,
 } from '../../../entities/camera/api/camerasApi';
 
 const DEFAULT_META: CamerasListMeta = {
@@ -19,6 +20,8 @@ const DEFAULT_META: CamerasListMeta = {
 function getStatusLabel(status: Camera['status']) {
   if (status === 'online') return 'Онлайн';
   if (status === 'offline') return 'Офлайн';
+  if (status === 'planned') return 'Запланирована';
+
   return 'Обслуживание';
 }
 
@@ -29,6 +32,10 @@ function getStatusClassName(status: Camera['status']) {
 
   if (status === 'offline') {
     return 'bg-red-500/10 text-red-700 ring-red-500/20';
+  }
+
+  if (status === 'planned') {
+    return 'bg-blue-500/10 text-blue-700 ring-blue-500/20';
   }
 
   return 'bg-yellow-500/10 text-yellow-700 ring-yellow-500/20';
@@ -92,13 +99,27 @@ function CameraIcon() {
 }
 
 function CameraCard({ camera }: { camera: Camera }) {
+  const isCameraOnline = camera.status === 'online';
+
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl transition hover:-translate-y-1 hover:shadow-2xl">
+    <article
+      className={[
+        'group flex h-full flex-col overflow-hidden rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl transition hover:shadow-2xl',
+        isCameraOnline ? 'hover:-translate-y-1' : 'opacity-80',
+      ].join(' ')}
+    >
       <div className="relative h-44 shrink-0 overflow-hidden bg-[var(--color-bg-soft)]">
         <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-bg-soft)] to-[var(--color-bg)]" />
 
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[var(--color-primary)] text-[var(--color-secondary-text)] shadow-xl">
+          <div
+            className={[
+              'flex h-20 w-20 items-center justify-center rounded-full shadow-xl',
+              isCameraOnline
+                ? 'bg-[var(--color-primary)] text-[var(--color-secondary-text)]'
+                : 'bg-[var(--color-bg-soft)] text-[var(--color-text-muted)] ring-1 ring-[var(--color-border)]',
+            ].join(' ')}
+          >
             <CameraIcon />
           </div>
         </div>
@@ -175,12 +196,22 @@ function CameraCard({ camera }: { camera: Camera }) {
         </p>
 
         <div className="mt-auto pt-5">
-          <Link
-            to={`/cameras/${camera.id}`}
-            className="flex h-12 w-full items-center justify-center rounded-[18px] bg-[var(--color-primary)] px-5 text-sm font-extrabold text-[var(--color-secondary-text)] transition hover:scale-[1.01]"
-          >
-            Смотреть камеру
-          </Link>
+          {isCameraOnline ? (
+            <Link
+              to={`/cameras/${camera.id}`}
+              className="flex h-12 w-full items-center justify-center rounded-[18px] bg-[var(--color-primary)] px-5 text-sm font-extrabold text-[var(--color-secondary-text)] transition hover:scale-[1.01]"
+            >
+              Смотреть камеру
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="flex h-12 w-full cursor-not-allowed items-center justify-center rounded-[18px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-5 text-sm font-extrabold text-[var(--color-text-muted)]"
+            >
+              Камера недоступна
+            </button>
+          )}
         </div>
       </div>
     </article>
@@ -200,6 +231,7 @@ export function CamerasListPage() {
   const [status, setStatus] = useState('');
   const [city, setCity] = useState('');
   const [category, setCategory] = useState('');
+  const [viewsSort, setViewsSort] = useState<ViewsSort | ''>('');
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -237,6 +269,7 @@ export function CamerasListPage() {
             status,
             city,
             category,
+            viewsSort,
           },
           abortController.signal,
         );
@@ -266,7 +299,7 @@ export function CamerasListPage() {
     return () => {
       abortController.abort();
     };
-  }, [page, limit, debouncedSearch, status, city, category]);
+  }, [page, limit, debouncedSearch, status, city, category, viewsSort]);
 
   const resetFilters = () => {
     setSearch('');
@@ -274,6 +307,7 @@ export function CamerasListPage() {
     setStatus('');
     setCity('');
     setCategory('');
+    setViewsSort('');
     setPage(1);
   };
 
@@ -307,7 +341,7 @@ export function CamerasListPage() {
         </div>
 
         <div className="mb-6 rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
-          <div className="grid gap-3 xl:grid-cols-[1fr_180px_220px_180px_140px_auto] xl:items-center">
+          <div className="grid gap-3 xl:grid-cols-[1fr_170px_200px_170px_180px_130px_auto] xl:items-center">
             <label className="flex h-12 items-center gap-3 rounded-[18px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-4 text-[var(--color-text-secondary)] transition focus-within:border-[var(--color-primary)]">
               <SearchIcon />
 
@@ -331,6 +365,7 @@ export function CamerasListPage() {
               <option value="online">online</option>
               <option value="offline">offline</option>
               <option value="maintenance">maintenance</option>
+              <option value="planned">planned</option>
             </select>
 
             <input
@@ -352,6 +387,19 @@ export function CamerasListPage() {
               placeholder="Категория"
               className="h-12 rounded-[18px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-4 font-inter text-sm font-semibold text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-secondary)] focus:border-[var(--color-primary)]"
             />
+
+            <select
+              value={viewsSort}
+              onChange={(event) => {
+                setViewsSort(event.target.value as ViewsSort | '');
+                setPage(1);
+              }}
+              className="h-12 rounded-[18px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-4 font-inter text-sm font-semibold text-[var(--color-text-primary)] outline-none focus:border-[var(--color-primary)]"
+            >
+              <option value="">Без сортировки</option>
+              <option value="most">Больше просмотров</option>
+              <option value="least">Меньше просмотров</option>
+            </select>
 
             <select
               value={limit}
@@ -390,7 +438,7 @@ export function CamerasListPage() {
           </div>
         ) : cameras.length === 0 ? (
           <div className="rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] p-10 text-center shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-[var(--color-primary-text)]">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-primary)] text-[var(--color-secondary-text)]">
               <CameraIcon />
             </div>
 

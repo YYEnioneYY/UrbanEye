@@ -14,6 +14,8 @@ export type CamerasLookingAtParams = {
   lng: number;
 };
 
+export type ViewsSort = 'most' | 'least';
+
 export type CamerasListQueryParams = {
   page: number;
   limit: number;
@@ -21,6 +23,7 @@ export type CamerasListQueryParams = {
   status?: string;
   city?: string;
   category?: string;
+  viewsSort?: ViewsSort | '';
 };
 
 export type CamerasListMeta = {
@@ -178,6 +181,10 @@ export async function getCamerasList(
 
   if (params.category?.trim()) {
     searchParams.set('category', params.category.trim());
+  }
+
+  if (params.viewsSort?.trim()) {
+    searchParams.set('viewsSort', params.viewsSort.trim());
   }
 
   const response = await fetch(
