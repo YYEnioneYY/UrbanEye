@@ -10,6 +10,11 @@ import {
 } from 'class-validator';
 import { CameraStatusDto } from './create-camera.dto';
 
+export enum CameraViewsSortDto {
+  most = 'most',
+  least = 'least',
+}
+
 export class PublicCameraQueryDto {
   @ApiPropertyOptional({ example: 1, default: 1 })
   @IsOptional()
@@ -48,4 +53,14 @@ export class PublicCameraQueryDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @ApiPropertyOptional({
+    example: 'most',
+    enum: CameraViewsSortDto,
+    description:
+      'Сортировка по просмотрам: most — больше всего, least — меньше всего',
+  })
+  @IsOptional()
+  @IsEnum(CameraViewsSortDto)
+  viewsSort?: CameraViewsSortDto;
 }

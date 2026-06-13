@@ -48,6 +48,7 @@ export class CameraService {
         status: query.status,
         city: query.city,
         category: query.category,
+        viewsSort: query.viewsSort,
       },
     );
   }
