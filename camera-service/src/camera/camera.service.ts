@@ -472,10 +472,8 @@ export class CameraService {
     const limit = dto.limit ?? 20;
     const skip = (page - 1) * limit;
     
-    const conditions: Prisma.Sql[] = [
-      Prisma.sql`c.deleted_at IS NULL`,
-    ];
-  
+    const conditions: Prisma.Sql[] = [Prisma.sql`c.deleted_at IS NULL`];
+    
     if (dto.search?.trim()) {
       const search = `%${dto.search.trim()}%`;
     
@@ -512,6 +510,13 @@ export class CameraService {
       WHERE ${Prisma.join(conditions, ' AND ')}
     `;
   
+    const orderBySql =
+      dto.viewsSort === 'most'
+        ? Prisma.sql`c.views_count DESC, c.created_at DESC`
+        : dto.viewsSort === 'least'
+          ? Prisma.sql`c.views_count ASC, c.created_at DESC`
+          : Prisma.sql`c.created_at DESC`;
+  
     const rows = await this.prisma.$queryRaw<CameraRow[]>(Prisma.sql`
       SELECT
         c.id::text,
@@ -532,7 +537,7 @@ export class CameraService {
         c.updated_at
       FROM cameras c
       ${whereSql}
-      ORDER BY c.created_at DESC
+      ORDER BY ${orderBySql}
       LIMIT ${limit}
       OFFSET ${skip};
     `);

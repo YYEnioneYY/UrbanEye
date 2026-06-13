@@ -9,6 +9,11 @@ import {
 } from 'class-validator';
 import { CameraStatusDto } from './create-camera.dto';
 
+export enum CameraViewsSortDto {
+  most = 'most',
+  least = 'least',
+}
+
 export class FindPublicCamerasDto {
   @IsOptional()
   @Type(() => Number)
@@ -38,4 +43,8 @@ export class FindPublicCamerasDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsEnum(CameraViewsSortDto)
+  viewsSort?: CameraViewsSortDto;
 }
