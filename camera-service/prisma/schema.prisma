@@ -26,6 +26,8 @@ model Camera {
   address     String?
   category    String?
 
+  previewUrl String? @map("preview_url")
+
   location    Unsupported("geometry(Point, 4326)")
 
   directionDeg Float? @map("direction_deg")

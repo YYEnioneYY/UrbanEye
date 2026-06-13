@@ -12,6 +12,7 @@ import {
   Min,
   MinLength,
   ValidateNested,
+  IsUrl,
 } from 'class-validator';
 import { CameraStatusDto } from './create-camera.dto';
 
@@ -59,6 +60,10 @@ export class UpdateCameraDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  previewUrl?: string | null;
 
   @IsOptional()
   @Type(() => Number)

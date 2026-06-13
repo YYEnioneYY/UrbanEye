@@ -7,6 +7,7 @@ export type PublicCamera = {
   city: string | null;
   address: string | null;
   category: string | null;
+  previewUrl: string | null;
   coordinates: {
     lat: number;
     lng: number;

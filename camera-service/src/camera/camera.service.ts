@@ -25,6 +25,7 @@ type CameraRow = {
   city: string | null;
   address: string | null;
   category: string | null;
+  preview_url: string | null;
   latitude: number;
   longitude: number;
   direction_deg: number | null;
@@ -85,6 +86,7 @@ export class CameraService {
             city,
             address,
             category,
+            preview_url,
             location,
             direction_deg,
             fov_deg,
@@ -102,6 +104,7 @@ export class CameraService {
             ${dto.city ?? null},
             ${dto.address ?? null},
             ${dto.category ?? null},
+            ${dto.previewUrl ?? null},
             ST_SetSRID(
               ST_MakePoint(
                 CAST(${longitude} AS double precision),
@@ -125,6 +128,7 @@ export class CameraService {
             city,
             address,
             category,
+            preview_url,
             ST_Y(location::geometry) as latitude,
             ST_X(location::geometry) as longitude,
             direction_deg,
@@ -194,6 +198,7 @@ export class CameraService {
         city,
         address,
         category,
+        preview_url,
         ST_Y(location::geometry) as latitude,
         ST_X(location::geometry) as longitude,
         direction_deg,
@@ -254,6 +259,7 @@ export class CameraService {
         c.city,
         c.address,
         c.category,
+        c.preview_url,
         ST_Y(c.location::geometry) as latitude,
         ST_X(c.location::geometry) as longitude,
         c.direction_deg,
@@ -313,6 +319,7 @@ export class CameraService {
       city: row.city,
       address: row.address,
       category: row.category,
+      previewUrl: row.preview_url,
       coordinates: {
         lat: Number(row.latitude),
         lng: Number(row.longitude),
@@ -355,6 +362,7 @@ export class CameraService {
         city: true,
         address: true,
         category: true,
+        preview_url: true,
         viewsCount: true,
         directionDeg: true,
         fovDeg: true,
@@ -406,6 +414,7 @@ export class CameraService {
         city: camera.city,
         address: camera.address,
         category: camera.category,
+        preview_url: camera.preview_url,
         coordinates: {
           lat: Number(coordinates.latitude),
           lng: Number(coordinates.longitude),
@@ -527,6 +536,7 @@ export class CameraService {
         c.city,
         c.address,
         c.category,
+        c.preview_url,
         ST_Y(c.location::geometry) as latitude,
         ST_X(c.location::geometry) as longitude,
         c.direction_deg,
@@ -587,6 +597,7 @@ export class CameraService {
           c.city,
           c.address,
           c.category,
+          c.preview_url,
           ST_Y(c.location::geometry) as latitude,
           ST_X(c.location::geometry) as longitude,
           c.direction_deg,
@@ -680,6 +691,7 @@ export class CameraService {
         c.city,
         c.address,
         c.category,
+        c.preview_url,
         ST_Y(c.location::geometry) as latitude,
         ST_X(c.location::geometry) as longitude,
         c.direction_deg,
@@ -752,6 +764,10 @@ export class CameraService {
       updates.push(Prisma.sql`category = ${dto.category}`);
     }
 
+    if (dto.previewUrl !== undefined) {
+      updates.push(Prisma.sql`preview_url = ${dto.previewUrl}`);
+    }
+
     if (dto.latitude !== undefined && dto.longitude !== undefined) {
       updates.push(Prisma.sql`
         location = ST_SetSRID(
@@ -816,6 +832,7 @@ export class CameraService {
               city,
               address,
               category,
+              preview_url,
               ST_Y(location::geometry) as latitude,
               ST_X(location::geometry) as longitude,
               direction_deg,
@@ -944,6 +961,7 @@ export class CameraService {
         c.city,
         c.address,
         c.category,
+        c.preview_url,
         ST_Y(c.location::geometry) as latitude,
         ST_X(c.location::geometry) as longitude,
         c.direction_deg,

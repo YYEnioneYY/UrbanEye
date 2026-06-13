@@ -11,6 +11,7 @@ import {
   MinLength,
   ValidateNested,
   IsInt,
+  IsUrl,
 } from 'class-validator';
 
 export enum CameraStatusDto {
@@ -62,6 +63,10 @@ export class CreateCameraDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  previewUrl?: string;
 
   @IsLatitude()
   latitude!: number;
