@@ -12,6 +12,7 @@ import {
   Min,
   MinLength,
   ValidateNested,
+  IsUrl,
 } from 'class-validator';
 import { CameraStatusDto } from './create-camera.dto';
 
@@ -74,6 +75,15 @@ export class UpdateCameraDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @ApiPropertyOptional({
+    example: 'https://s3.example.com/okogid/cameras/spb-palace-square.jpg',
+    nullable: true,
+    description: 'URL превью камеры. Передай null, чтобы очистить превью.',
+  })
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  previewUrl?: string | null;
 
   @ApiPropertyOptional({ example: 59.9398 })
   @IsOptional()

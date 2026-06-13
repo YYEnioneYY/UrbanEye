@@ -51,6 +51,12 @@ export class PublicCameraDto {
   @ApiPropertyOptional({ example: 'landmark' })
   category!: string | null;
 
+  @ApiProperty({
+    example: 'https://s3.example.com/okogid/cameras/spb-palace-square.jpg',
+    nullable: true,
+  })
+  previewUrl!: string | null;
+
   @ApiProperty({ type: CameraCoordinatesDto })
   coordinates!: CameraCoordinatesDto;
 

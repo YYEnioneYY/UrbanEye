@@ -12,6 +12,7 @@ import {
   IsNumber,
   Max,
   Min,
+  IsUrl,
 } from 'class-validator';
 
 export enum CameraStatusDto {
@@ -76,6 +77,14 @@ export class CreateCameraDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @ApiPropertyOptional({
+    example: 'https://s3.example.com/okogid/cameras/spb-palace-square.jpg',
+    description: 'URL превью камеры',
+  })
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  previewUrl?: string;
 
   @ApiPropertyOptional({
     example: 90,
