@@ -8,6 +8,9 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -27,10 +30,18 @@ import { PublicCameraQueryDto } from './dto/public-camera-query.dto';
 import { CamerasLookingAtPointQueryDto } from './dto/cameras-looking-at-point-query.dto';
 import { UpdateCameraDto } from './dto/update-camera.dto';
 
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBody, ApiConsumes } from '@nestjs/swagger';
+import { memoryStorage } from 'multer';
+import { S3StorageService } from '../storage/s3-storage.service';
+
 @ApiTags('Cameras')
 @Controller()
 export class CameraController {
-  constructor(private readonly cameraService: CameraService) {}
+  constructor(
+    private readonly cameraService: CameraService,
+    private readonly s3StorageService: S3StorageService,
+  ) {}
 
   @Post('admin/cameras')
   @Auth('admin')
@@ -107,5 +118,65 @@ export class CameraController {
     cameraId: string,
   ) {
     return this.cameraService.delete(cameraId);
+  }
+
+
+
+
+
+  @Post('admin/cameras/:cameraId/preview')
+  @Auth('admin')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Загрузить превью камеры в S3 и сохранить URL' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiOkResponse({ type: PublicCameraDto })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+      },
+      fileFilter: (_request, file, callback) => {
+        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      
+        if (!allowedMimeTypes.includes(file.mimetype)) {
+          callback(
+            new BadRequestException(
+              'Only jpeg, png and webp images are allowed',
+            ),
+            false,
+          );
+          return;
+        }
+      
+        callback(null, true);
+      },
+    }),
+  )
+  async uploadPreview(
+    @Param('cameraId', new ParseUUIDPipe({ version: '4' }))
+    cameraId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const uploadedPreview = await this.s3StorageService.uploadCameraPreview({
+      cameraId,
+      file,
+    });
+  
+    return this.cameraService.update(cameraId, {
+      previewUrl: uploadedPreview.url,
+    });
   }
 }
