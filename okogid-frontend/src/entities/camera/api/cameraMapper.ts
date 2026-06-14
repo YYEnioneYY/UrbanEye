@@ -12,6 +12,8 @@ export type ApiCamera = {
   address: string;
   category: string;
 
+  previewUrl?: string | null;
+
   coordinates: {
     lat: number;
     lng: number;
@@ -68,6 +70,8 @@ export function mapCameraFromApi(apiCamera: ApiCamera): Camera {
     city: apiCamera.city,
     address: apiCamera.address,
     category: apiCamera.category,
+
+    previewUrl: apiCamera.previewUrl ?? null,
 
     status: mapCameraStatus(apiCamera),
 

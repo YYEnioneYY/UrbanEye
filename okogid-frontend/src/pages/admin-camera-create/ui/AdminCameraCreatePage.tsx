@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 
 import {
   createAdminCamera,
+  uploadAdminCameraPreview,
   type CreateAdminCameraPayload,
 } from '../../../entities/camera/api/adminCamerasApi';
 import type { AdminCamera } from '../../../entities/camera/model/adminCameraTypes';
@@ -44,6 +45,25 @@ const INITIAL_FORM_STATE: FormState = {
   username: '',
   password: '',
 };
+
+function CameraIcon() {
+  return (
+    <svg
+      className="h-7 w-7"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 8h10a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
+      <path d="m17 12 5-3v10l-5-3" />
+      <path d="M7 8l1.5-3h4L14 8" />
+    </svg>
+  );
+}
 
 function normalizeNumber(value: string) {
   return Number(value.replace(',', '.'));
@@ -160,6 +180,9 @@ export function AdminCameraCreatePage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
   const previewPayload = useMemo<CreateAdminCameraPayload>(() => {
     return {
       title: form.title.trim(),
@@ -181,6 +204,22 @@ export function AdminCameraCreatePage() {
       },
     };
   }, [form]);
+
+  const handlePreviewFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+
+    setPreviewFile(file);
+
+    if (previewImageUrl) {
+      URL.revokeObjectURL(previewImageUrl);
+    }
+
+    if (file) {
+      setPreviewImageUrl(URL.createObjectURL(file));
+    } else {
+      setPreviewImageUrl(null);
+    }
+  };
 
   const updateField = (
     field: keyof FormState,
@@ -282,16 +321,26 @@ export function AdminCameraCreatePage() {
     try {
       setIsLoading(true);
 
-      const camera = await createAdminCamera(
+      const createdCamera = await createAdminCamera(
         previewPayload,
         abortController.signal,
       );
-
-      setCreatedCamera(camera);
+    
+      if (previewFile) {
+        const cameraWithPreview = await uploadAdminCameraPreview(
+          createdCamera.id,
+          previewFile,
+          abortController.signal,
+        );
+      
+        setCreatedCamera(cameraWithPreview);
+      } else {
+        setCreatedCamera(createdCamera);
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Не удалось создать камеру';
-
+    
       setError(message);
     } finally {
       setIsLoading(false);
@@ -302,6 +351,14 @@ export function AdminCameraCreatePage() {
     setForm(INITIAL_FORM_STATE);
     setError(null);
     setCreatedCamera(null);
+
+    setPreviewFile(null);
+
+    if (previewImageUrl) {
+      URL.revokeObjectURL(previewImageUrl);
+    }
+
+    setPreviewImageUrl(null);
   };
 
   return (
@@ -405,6 +462,81 @@ export function AdminCameraCreatePage() {
                   placeholder="Камера с видом на Дворцовую площадь"
                 />
               </Field>
+            </div>
+          </div>
+
+          <div className="rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
+            <h2 className="text-2xl font-extrabold text-[var(--color-text-primary)]">
+              Превью камеры
+            </h2>
+
+            <p className="mt-2 font-inter text-sm text-[var(--color-text-secondary)]">
+              Это изображение будет отображаться в карточках камер вместо иконки.
+            </p>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-[280px_1fr] lg:items-center">
+              <div className="relative h-44 overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-[var(--color-bg-soft)]">
+                {previewImageUrl ? (
+                  <img
+                    src={previewImageUrl}
+                    alt="Превью камеры"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center text-center">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-primary)] text-[var(--color-secondary-text)]">
+                      <CameraIcon />
+                    </div>
+                
+                    <p className="mt-3 font-inter text-sm font-bold text-[var(--color-text-secondary)]">
+                      Превью не выбрано
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-[24px] border border-dashed border-[var(--color-border-strong)] bg-[var(--color-bg-soft)] px-5 py-6 text-center transition hover:border-[var(--color-primary)]">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePreviewFileChange}
+                    className="hidden"
+                  />
+
+                  <span className="font-inter text-sm font-extrabold text-[var(--color-text-primary)]">
+                    Нажмите, чтобы выбрать изображение
+                  </span>
+              
+                  <span className="mt-2 font-inter text-xs text-[var(--color-text-secondary)]">
+                    JPG, PNG, WEBP. Лучше использовать горизонтальное изображение 16:9.
+                  </span>
+                </label>
+              
+                {previewFile && (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-[18px] bg-[var(--color-bg-soft)] px-4 py-3">
+                    <span className="truncate font-inter text-xs font-bold text-[var(--color-text-secondary)]">
+                      {previewFile.name}
+                    </span>
+                
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewFile(null);
+                      
+                        if (previewImageUrl) {
+                          URL.revokeObjectURL(previewImageUrl);
+                        }
+                      
+                        setPreviewImageUrl(null);
+                      }}
+                      className="shrink-0 font-inter text-xs font-bold text-red-500"
+                    >
+                      Убрать
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

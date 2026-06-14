@@ -109,36 +109,52 @@ function CameraCard({ camera }: { camera: Camera }) {
       ].join(' ')}
     >
       <div className="relative h-44 shrink-0 overflow-hidden bg-[var(--color-bg-soft)]">
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-bg-soft)] to-[var(--color-bg)]" />
-
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div
-            className={[
-              'flex h-20 w-20 items-center justify-center rounded-full shadow-xl',
-              isCameraOnline
-                ? 'bg-[var(--color-primary)] text-[var(--color-secondary-text)]'
-                : 'bg-[var(--color-bg-soft)] text-[var(--color-text-muted)] ring-1 ring-[var(--color-border)]',
-            ].join(' ')}
-          >
-            <CameraIcon />
+          {camera.previewUrl ? (
+            <img
+              src={camera.previewUrl}
+              alt={camera.title}
+              className={[
+                'h-full w-full object-cover transition duration-500',
+                isCameraOnline ? 'group-hover:scale-105' : 'grayscale',
+              ].join(' ')}
+              loading="lazy"
+            />
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-bg-soft)] to-[var(--color-bg)]" />
+        
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div
+                  className={[
+                    'flex h-20 w-20 items-center justify-center rounded-full shadow-xl',
+                    isCameraOnline
+                      ? 'bg-[var(--color-primary)] text-[var(--color-secondary-text)]'
+                      : 'bg-[var(--color-bg-soft)] text-[var(--color-text-muted)] ring-1 ring-[var(--color-border)]',
+                  ].join(' ')}
+                >
+                  <CameraIcon />
+                </div>
+              </div>
+            </>
+          )}
+        
+          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+      
+          <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+            <span
+              className={[
+                'rounded-full px-3 py-1 font-inter text-xs font-bold ring-1 backdrop-blur-xl',
+                getStatusClassName(camera.status),
+              ].join(' ')}
+            >
+              {getStatusLabel(camera.status)}
+            </span>
+          
+            <span className="rounded-full bg-[var(--navbar-bg)] px-3 py-1 font-inter text-xs font-bold text-[var(--color-text-secondary)] ring-1 ring-[var(--color-border)] backdrop-blur-xl">
+              {getCategoryLabel(camera.category)}
+            </span>
           </div>
         </div>
-
-        <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-          <span
-            className={[
-              'rounded-full px-3 py-1 font-inter text-xs font-bold ring-1 backdrop-blur-xl',
-              getStatusClassName(camera.status),
-            ].join(' ')}
-          >
-            {getStatusLabel(camera.status)}
-          </span>
-
-          <span className="rounded-full bg-[var(--navbar-bg)] px-3 py-1 font-inter text-xs font-bold text-[var(--color-text-secondary)] ring-1 ring-[var(--color-border)] backdrop-blur-xl">
-            {getCategoryLabel(camera.category)}
-          </span>
-        </div>
-      </div>
 
       <div className="flex flex-1 flex-col p-5">
         <h2 className="line-clamp-2 min-h-[64px] text-2xl font-extrabold leading-tight text-[var(--color-text-primary)]">

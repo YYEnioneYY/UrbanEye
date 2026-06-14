@@ -25,6 +25,8 @@ export type AdminCamera = {
 
   viewsCount: number;
 
+  previewUrl?: string | null;
+
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

@@ -49,6 +49,7 @@ type ApiAdminCamera = {
   city: string;
   address: string;
   category: string;
+  previewUrl?: string | null;
   coordinates: {
     lat: number;
     lng: number;
@@ -104,6 +105,8 @@ function mapAdminCameraFromApi(apiCamera: ApiAdminCamera): AdminCamera {
     city: apiCamera.city,
     address: apiCamera.address,
     category: apiCamera.category,
+
+    previewUrl: apiCamera.previewUrl ?? null,
 
     latitude: apiCamera.coordinates.lat,
     longitude: apiCamera.coordinates.lng,
@@ -256,4 +259,35 @@ export async function deleteAdminCamera(
   }
 
   return response.json() as Promise<DeleteAdminCameraResponse>;
+}
+
+export async function uploadAdminCameraPreview(
+  cameraId: string,
+  file: File,
+  signal?: AbortSignal,
+): Promise<AdminCamera> {
+  const formData = new FormData();
+
+  formData.append('file', file);
+
+  const response = await authFetch(
+    createApiUrl(API_CONFIG.apiBaseUrl, `/admin/cameras/${cameraId}/preview`),
+    {
+      method: 'POST',
+      signal,
+      headers: {
+        Accept: 'application/json',
+      },
+      body: formData,
+    },
+  );
+
+  if (!response.ok) {
+    const message = await getApiErrorMessage(response);
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as ApiAdminCamera;
+
+  return mapAdminCameraFromApi(data);
 }

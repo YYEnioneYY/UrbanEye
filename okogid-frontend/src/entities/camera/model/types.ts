@@ -17,27 +17,20 @@ export type Camera = {
   title: string;
   slug: string;
   description: string;
-
   city: string;
   address: string;
   category: string;
-
   status: CameraStatus;
-
   latitude: number;
   longitude: number;
-
   coverage?: CameraCoverage;
   viewMatch?: CameraViewMatch;
-
   viewsCount?: number;
+  previewUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
-
   path?: string;
   enabled?: boolean;
   streamEndpoint?: string;
-
-  previewUrl?: string;
   streamUrl?: string;
 };

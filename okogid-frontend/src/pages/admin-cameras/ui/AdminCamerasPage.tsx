@@ -415,8 +415,19 @@ export function AdminCamerasPage() {
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-[var(--color-secondary-text)]">
-                            <CameraIcon />
+                          <div className="h-12 w-16 shrink-0 overflow-hidden rounded-[16px] border border-[var(--color-border)] bg-[var(--color-bg-soft)]">
+                            {camera.previewUrl ? (
+                              <img
+                                src={camera.previewUrl}
+                                alt={camera.title}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-[var(--color-primary)] text-[var(--color-secondary-text)]">
+                                <CameraIcon />
+                              </div>
+                            )}
                           </div>
 
                           <div className="min-w-0">
