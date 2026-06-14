@@ -362,7 +362,7 @@ export class CameraService {
         city: true,
         address: true,
         category: true,
-        preview_url: true,
+        previewUrl: true,
         viewsCount: true,
         directionDeg: true,
         fovDeg: true,
@@ -414,7 +414,7 @@ export class CameraService {
         city: camera.city,
         address: camera.address,
         category: camera.category,
-        preview_url: camera.preview_url,
+        previewUrl: camera.previewUrl,
         coordinates: {
           lat: Number(coordinates.latitude),
           lng: Number(coordinates.longitude),
