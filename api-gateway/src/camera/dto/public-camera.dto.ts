@@ -23,6 +23,32 @@ class CameraCoverageDto {
   rangeMeters!: number;
 }
 
+class CameraHealthDto {
+  @ApiProperty({ example: 'online', enum: ['unknown', 'online', 'offline', 'unstable'] })
+  status!: 'unknown' | 'online' | 'offline' | 'unstable';
+
+  @ApiProperty({ example: 'h264', nullable: true })
+  videoCodec!: string | null;
+
+  @ApiProperty({ example: 'aac', nullable: true })
+  audioCodec!: string | null;
+
+  @ApiProperty({ example: false })
+  transcodingRequired!: boolean;
+
+  @ApiProperty({ example: '2026-06-14T21:10:00.000Z', nullable: true })
+  lastCheckedAt!: string | null;
+
+  @ApiProperty({ example: '2026-06-14T21:10:00.000Z', nullable: true })
+  lastOnlineAt!: string | null;
+
+  @ApiProperty({ example: null, nullable: true })
+  lastOfflineAt!: string | null;
+
+  @ApiProperty({ example: null, nullable: true })
+  error!: string | null;
+}
+
 export class PublicCameraDto {
   @ApiProperty({ example: 'b4c606c0-5f8a-4d4c-93c3-90e040f7f6fb' })
   id!: string;
@@ -65,6 +91,9 @@ export class PublicCameraDto {
 
   @ApiProperty({ example: 125 })
   viewsCount!: number;
+
+  @ApiProperty({ type: CameraHealthDto })
+  health!: CameraHealthDto;
 
   @ApiProperty({ example: '2026-05-27T18:00:00.000Z' })
   createdAt!: string;
