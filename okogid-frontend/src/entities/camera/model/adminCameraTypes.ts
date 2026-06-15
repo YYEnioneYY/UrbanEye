@@ -6,6 +6,24 @@ export type AdminCameraConnection = {
   password: string;
 };
 
+export type AdminCameraHealthStatus =
+  | 'online'
+  | 'offline'
+  | 'unknown'
+  | 'checking'
+  | 'error';
+
+export type AdminCameraHealth = {
+  status: AdminCameraHealthStatus | string;
+  videoCodec: string | null;
+  audioCodec: string | null;
+  transcodingRequired: boolean;
+  lastCheckedAt: string | null;
+  lastOnlineAt: string | null;
+  lastOfflineAt: string | null;
+  error: string | null;
+};
+
 export type AdminCamera = {
   id: string;
   title: string;
@@ -26,6 +44,8 @@ export type AdminCamera = {
   viewsCount: number;
 
   previewUrl?: string | null;
+
+  health?: AdminCameraHealth | null;
 
   createdAt: string;
   updatedAt: string;

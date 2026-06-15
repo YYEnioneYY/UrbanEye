@@ -68,6 +68,17 @@ function formatMeters(value?: number) {
   return `${(value / 1000).toFixed(1)} км`;
 }
 
+function formatOptionalDate(value?: string | null) {
+  if (!value) return '—';
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
 function SearchIcon() {
   return (
     <svg
@@ -363,7 +374,7 @@ export function AdminCamerasPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1250px] border-collapse">
+            <table className="w-full min-w-[1650px] border-collapse">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-soft)] text-left">
                   <th className="px-5 py-4 font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
@@ -372,6 +383,10 @@ export function AdminCamerasPage() {
 
                   <th className="px-5 py-4 font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
                     Статус
+                  </th>
+
+                  <th className="px-5 py-4 font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+                    Health
                   </th>
 
                   <th className="px-5 py-4 font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
@@ -455,6 +470,71 @@ export function AdminCamerasPage() {
                         >
                           {getStatusLabel(camera.status)}
                         </span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {camera.health ? (
+                          <div className="max-w-[260px] space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              
+                              {camera.health.transcodingRequired && (
+                                <span className="inline-flex rounded-full bg-yellow-500/10 px-3 py-1 font-inter text-xs font-bold text-yellow-600 ring-1 ring-yellow-500/20">
+                                  Transcoding
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="space-y-1 font-inter text-xs text-[var(--color-text-secondary)]">
+                              <p>
+                                Video:{' '}
+                                <span className="font-bold text-[var(--color-text-primary)]">
+                                  {camera.health.videoCodec ?? '—'}
+                                </span>
+                              </p>
+                            
+                              <p>
+                                Audio:{' '}
+                                <span className="font-bold text-[var(--color-text-primary)]">
+                                  {camera.health.audioCodec ?? '—'}
+                                </span>
+                              </p>
+                            
+                              <p>
+                                Checked:{' '}
+                                <span className="font-bold text-[var(--color-text-primary)]">
+                                  {formatOptionalDate(camera.health.lastCheckedAt)}
+                                </span>
+                              </p>
+                            
+                              <p>
+                                Online:{' '}
+                                <span className="font-bold text-[var(--color-text-primary)]">
+                                  {formatOptionalDate(camera.health.lastOnlineAt)}
+                                </span>
+                              </p>
+                            
+                              <p>
+                                Offline:{' '}
+                                <span className="font-bold text-[var(--color-text-primary)]">
+                                  {formatOptionalDate(camera.health.lastOfflineAt)}
+                                </span>
+                              </p>
+                            </div>
+                            
+                            {camera.health.error && (
+                              <p
+                                title={camera.health.error}
+                                className="line-clamp-2 rounded-[14px] bg-red-500/10 px-3 py-2 font-inter text-xs font-semibold leading-5 text-red-600"
+                              >
+                                {camera.health.error}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="font-inter text-xs font-semibold text-[var(--color-text-muted)]">
+                            Нет данных
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-5 py-4">

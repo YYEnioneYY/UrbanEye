@@ -60,6 +60,16 @@ type ApiAdminCamera = {
     rangeMeters: number;
   };
   viewsCount: number;
+  health?: {
+    status: string;
+    videoCodec: string | null;
+    audioCodec: string | null;
+    transcodingRequired: boolean;
+    lastCheckedAt: string | null;
+    lastOnlineAt: string | null;
+    lastOfflineAt: string | null;
+    error: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -114,6 +124,8 @@ function mapAdminCameraFromApi(apiCamera: ApiAdminCamera): AdminCamera {
     coverage: apiCamera.coverage,
 
     viewsCount: apiCamera.viewsCount,
+
+    health: apiCamera.health ?? null,
 
     createdAt: apiCamera.createdAt,
     updatedAt: apiCamera.updatedAt,
