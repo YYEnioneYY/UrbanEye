@@ -13,6 +13,7 @@ import { FindPublicCamerasDto } from './dto/find-public-cameras.dto';
 import { FindCamerasLookingAtPointDto } from './dto/find-cameras-looking-at-point.dto';
 import { BadRequestException } from '@nestjs/common';
 import { UpdateCameraPayloadDto } from './dto/update-camera.dto';
+import { UpdateCameraHealthDto } from './dto/update-camera-health.dto';
 
 type CameraStatus = 'online' | 'offline' | 'maintenance' | 'planned';
 
@@ -21,7 +22,7 @@ type CameraRow = {
   title: string;
   slug: string;
   description: string | null;
-  status: CameraStatus;
+  status: 'online' | 'offline' | 'maintenance' | 'planned';
   city: string | null;
   address: string | null;
   category: string | null;
@@ -32,6 +33,16 @@ type CameraRow = {
   fov_deg: number;
   range_meters: number;
   views_count: number;
+
+  health_status: 'unknown' | 'online' | 'offline' | 'unstable';
+  video_codec: string | null;
+  audio_codec: string | null;
+  transcoding_required: boolean;
+  last_checked_at: Date | null;
+  last_online_at: Date | null;
+  last_offline_at: Date | null;
+  health_error: string | null;
+
   created_at: Date;
   updated_at: Date;
 };
@@ -135,6 +146,14 @@ export class CameraService {
             fov_deg,
             range_meters,
             views_count,
+            health_status::text as health_status,
+            video_codec,
+            audio_codec,
+            transcoding_required,
+            last_checked_at,
+            last_online_at,
+            last_offline_at,
+            health_error,
             created_at,
             updated_at;
         `;
@@ -205,6 +224,14 @@ export class CameraService {
         fov_deg,
         range_meters,
         views_count,
+        health_status::text as health_status,
+        video_codec,
+        audio_codec,
+        transcoding_required,
+        last_checked_at,
+        last_online_at,
+        last_offline_at,
+        health_error,
         created_at,
         updated_at
       FROM cameras
@@ -266,6 +293,14 @@ export class CameraService {
         c.fov_deg,
         c.range_meters,
         c.views_count,
+        c.health_status::text as health_status,
+        c.video_codec,
+        c.audio_codec,
+        c.transcoding_required,
+        c.last_checked_at,
+        c.last_online_at,
+        c.last_offline_at,
+        c.health_error,
         c.created_at,
         c.updated_at,
         c.deleted_at,
@@ -331,6 +366,16 @@ export class CameraService {
         rangeMeters: Number(row.range_meters),
       },
       viewsCount: Number(row.views_count),
+      health: {
+        status: row.health_status,
+        videoCodec: row.video_codec,
+        audioCodec: row.audio_codec,
+        transcodingRequired: Boolean(row.transcoding_required),
+        lastCheckedAt: row.last_checked_at,
+        lastOnlineAt: row.last_online_at,
+        lastOfflineAt: row.last_offline_at,
+        error: row.health_error,
+      },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -367,6 +412,14 @@ export class CameraService {
         directionDeg: true,
         fovDeg: true,
         rangeMeters: true,
+        healthStatus: true,
+        videoCodec: true,
+        audioCodec: true,
+        transcodingRequired: true,
+        lastCheckedAt: true,
+        lastOnlineAt: true,
+        lastOfflineAt: true,
+        healthError: true,
         createdAt: true,
         updatedAt: true,
         connection: {
@@ -425,6 +478,15 @@ export class CameraService {
           rangeMeters: camera.rangeMeters,
         },
         viewsCount: camera.viewsCount,
+        health: {
+          status: camera.healthStatus,
+          videoCodec: camera.videoCodec,
+          audioCodec: camera.audioCodec,
+          transcodingRequired: camera.transcodingRequired,
+          lastCheckedAt: camera.lastCheckedAt,
+          lastOnlineAt: camera.lastOnlineAt,
+          lastOfflineAt: camera.lastOfflineAt,
+        },
         createdAt: camera.createdAt,
         updatedAt: camera.updatedAt,
       },
@@ -543,6 +605,14 @@ export class CameraService {
         c.fov_deg,
         c.range_meters,
         c.views_count,
+        c.health_status::text as health_status,
+        c.video_codec,
+        c.audio_codec,
+        c.transcoding_required,
+        c.last_checked_at,
+        c.last_online_at,
+        c.last_offline_at,
+        c.health_error,
         c.created_at,
         c.updated_at
       FROM cameras c
@@ -604,6 +674,14 @@ export class CameraService {
           c.fov_deg,
           c.range_meters,
           c.views_count,
+          c.health_status::text as health_status,
+          c.video_codec,
+          c.audio_codec,
+          c.transcoding_required,
+          c.last_checked_at,
+          c.last_online_at,
+          c.last_offline_at,
+          c.health_error,
           c.created_at,
           c.updated_at,
     
@@ -968,6 +1046,14 @@ export class CameraService {
         c.fov_deg,
         c.range_meters,
         c.views_count,
+        c.health_status::text as health_status,
+        c.video_codec,
+        c.audio_codec,
+        c.transcoding_required,
+        c.last_checked_at,
+        c.last_online_at,
+        c.last_offline_at,
+        c.health_error,
         c.created_at,
         c.updated_at
       FROM cameras c
@@ -1042,5 +1128,122 @@ export class CameraService {
           'Failed to delete camera',
       });
     }
+  }
+
+  async getHealthCheckTargets(limit: number) {
+    const cameras = await this.prisma.camera.findMany({
+      where: {
+        deletedAt: null,
+        status: {
+          in: ['online', 'offline'],
+        },
+        connection: {
+          isNot: null,
+        },
+      },
+      take: limit,
+      orderBy: [
+        {
+          lastCheckedAt: 'asc',
+        },
+        {
+          createdAt: 'asc',
+        },
+      ],
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        status: true,
+        connection: {
+          select: {
+            encryptedRtspUrl: true,
+            encryptedUsername: true,
+            encryptedPassword: true,
+          },
+        },
+      },
+    });
+
+    return cameras
+      .filter((camera) => camera.connection)
+      .map((camera) => ({
+        cameraId: camera.id,
+        title: camera.title,
+        slug: camera.slug,
+        status: camera.status,
+        connection: {
+          rtspUrl: this.encryptionService.decrypt(
+            camera.connection!.encryptedRtspUrl,
+          ),
+          username: this.encryptionService.decrypt(
+            camera.connection!.encryptedUsername,
+          ),
+          password: this.encryptionService.decrypt(
+            camera.connection!.encryptedPassword,
+          ),
+        },
+    }));
+  }
+
+  async updateInternalHealth(cameraId: string, dto: UpdateCameraHealthDto) {
+    const rows = await this.prisma.$queryRaw<
+      {
+        id: string;
+        health_status: string;
+        video_codec: string | null;
+        audio_codec: string | null;
+        transcoding_required: boolean;
+        last_checked_at: Date;
+      }[]
+    >`
+      UPDATE cameras
+      SET
+        health_status = CAST(${dto.healthStatus} AS camera_health_status),
+        video_codec = ${dto.videoCodec ?? null},
+        audio_codec = ${dto.audioCodec ?? null},
+        transcoding_required = ${dto.transcodingRequired},
+        health_error = ${dto.healthError ?? null},
+        last_checked_at = NOW(),
+        last_online_at = CASE
+          WHEN ${dto.healthStatus} = 'online' THEN NOW()
+          ELSE last_online_at
+        END,
+        last_offline_at = CASE
+          WHEN ${dto.healthStatus} = 'offline' THEN NOW()
+          ELSE last_offline_at
+        END,
+        status = CASE
+          WHEN status IN ('maintenance', 'planned') THEN status
+          WHEN ${dto.healthStatus} = 'online' THEN 'online'::camera_status
+          WHEN ${dto.healthStatus} = 'offline' THEN 'offline'::camera_status
+          ELSE status
+        END,
+        updated_at = NOW()
+      WHERE id = ${cameraId}::uuid
+        AND deleted_at IS NULL
+      RETURNING
+        id::text,
+        health_status::text,
+        video_codec,
+        audio_codec,
+        transcoding_required,
+        last_checked_at;
+    `;
+
+    const camera = rows[0];
+
+    if (!camera) {
+      throw new NotFoundException('Camera not found');
+    }
+
+    return {
+      cameraId: camera.id,
+      healthStatus: camera.health_status,
+      videoCodec: camera.video_codec,
+      audioCodec: camera.audio_codec,
+      transcodingRequired: camera.transcoding_required,
+      lastCheckedAt: camera.last_checked_at,
+    };
   }
 }   

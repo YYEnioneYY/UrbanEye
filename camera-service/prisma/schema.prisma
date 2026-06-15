@@ -15,6 +15,15 @@ enum CameraStatus {
   @@map("camera_status")
 }
 
+enum CameraHealthStatus {
+  unknown
+  online
+  offline
+  unstable
+
+  @@map("camera_health_status")
+}
+
 model Camera {
   id          String       @id @default(uuid()) @db.Uuid
   title       String
@@ -35,6 +44,15 @@ model Camera {
   rangeMeters  Int    @default(100) @map("range_meters")
 
   viewsCount Int @default(0) @map("views_count")
+
+  healthStatus        CameraHealthStatus @default(unknown) @map("health_status")
+  videoCodec          String?            @map("video_codec")
+  audioCodec          String?            @map("audio_codec")
+  transcodingRequired Boolean            @default(false) @map("transcoding_required")
+  lastCheckedAt       DateTime?          @map("last_checked_at")
+  lastOnlineAt        DateTime?          @map("last_online_at")
+  lastOfflineAt       DateTime?          @map("last_offline_at")
+  healthError         String?            @map("health_error")
 
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
