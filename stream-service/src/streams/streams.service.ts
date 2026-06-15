@@ -25,8 +25,11 @@ export class StreamsService {
       cameraData.connection.password,
     );
 
-    const shouldTranscode =
+    const forceTranscoding =
       this.configService.get<string>('FORCE_TRANSCODING') === 'true';
+      
+    const shouldTranscode =
+      forceTranscoding || cameraData.camera.health?.transcodingRequired === true;
 
     let finalPath = path;
 

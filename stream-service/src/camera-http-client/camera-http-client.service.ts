@@ -31,6 +31,15 @@ export type InternalCameraConnectionResponse = {
       rangeMeters: number;
     };
     viewsCount: number;
+    health: {
+      status: 'unknown' | 'online' | 'offline' | 'unstable';
+      videoCodec: string | null;
+      audioCodec: string | null;
+      transcodingRequired: boolean;
+      lastCheckedAt: string | null;
+      lastOnlineAt: string | null;
+      lastOfflineAt: string | null;
+    };
     createdAt: string;
     updatedAt: string;
   };
