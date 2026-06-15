@@ -309,6 +309,25 @@ services:
     networks:
       - okogid-network
 
+  camera-health-service:
+    build:
+      context: ./camera-health-service
+      dockerfile: Dockerfile
+    container_name: camera-health-service
+    restart: unless-stopped
+    environment:
+      CAMERA_SERVICE_INTERNAL_URL: http://camera-service:3000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+  
+      HEALTH_CHECK_ENABLED: "true"
+      HEALTH_CHECK_BATCH_LIMIT: 50
+      HEALTH_CHECK_TIMEOUT_MS: 10000
+    depends_on:
+      camera-service:
+        condition: service_started
+    networks:
+      - okogid-network
+
 volumes:
   postgres_data:
   camera_postgres_data:
