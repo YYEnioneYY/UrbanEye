@@ -43,8 +43,10 @@ export class StreamsService {
 
     await this.cameraHttpClientService.incrementViews(cameraId);
 
+    const { health, ...publicCamera } = cameraData.camera;
+
     return {
-      camera: cameraData.camera,
+      camera: publicCamera,
       stream: {
         type: 'webrtc' as const,
         path: finalPath,
