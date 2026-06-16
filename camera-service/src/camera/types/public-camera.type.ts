@@ -18,16 +18,6 @@ export type PublicCamera = {
     rangeMeters: number;
   };
   viewsCount: number;
-  health: {
-    status: 'unknown' | 'online' | 'offline' | 'unstable';
-    videoCodec: string | null;
-    audioCodec: string | null;
-    transcodingRequired: boolean;
-    lastCheckedAt: Date | null;
-    lastOnlineAt: Date | null;
-    lastOfflineAt: Date | null;
-    error: string | null;
-  };
   createdAt: Date;
   updatedAt: Date;
 };

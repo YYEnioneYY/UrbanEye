@@ -75,7 +75,7 @@ export class CameraService {
     const cameraId = randomUUID();
     const slug = this.createSlug(dto.title, dto.slug);
     
-    const status = dto.status ?? 'planned';
+    const initialStatus = 'offline';
     const latitude = Number(dto.latitude);
     const longitude = Number(dto.longitude);
 
@@ -111,7 +111,7 @@ export class CameraService {
             ${dto.title},
             ${slug},
             ${dto.description ?? null},
-            CAST(${status} AS camera_status),
+            CAST(${initialStatus} AS camera_status),
             ${dto.city ?? null},
             ${dto.address ?? null},
             ${dto.category ?? null},
@@ -224,14 +224,6 @@ export class CameraService {
         fov_deg,
         range_meters,
         views_count,
-        health_status::text as health_status,
-        video_codec,
-        audio_codec,
-        transcoding_required,
-        last_checked_at,
-        last_online_at,
-        last_offline_at,
-        health_error,
         created_at,
         updated_at
       FROM cameras
@@ -326,6 +318,16 @@ export class CameraService {
     return {
       data: rows.map((row) => ({
         ...this.mapPublicCamera(row),
+        health: {
+          status: row.health_status,
+          videoCodec: row.video_codec,
+          audioCodec: row.audio_codec,
+          transcodingRequired: Boolean(row.transcoding_required),
+          lastCheckedAt: row.last_checked_at,
+          lastOnlineAt: row.last_online_at,
+          lastOfflineAt: row.last_offline_at,
+          error: row.health_error,
+        },
         deletedAt: row.deleted_at,
         connection: {
           rtspUrl: this.encryptionService.decrypt(row.encrypted_rtsp_url),
@@ -366,16 +368,6 @@ export class CameraService {
         rangeMeters: Number(row.range_meters),
       },
       viewsCount: Number(row.views_count),
-      health: {
-        status: row.health_status,
-        videoCodec: row.video_codec,
-        audioCodec: row.audio_codec,
-        transcodingRequired: Boolean(row.transcoding_required),
-        lastCheckedAt: row.last_checked_at,
-        lastOnlineAt: row.last_online_at,
-        lastOfflineAt: row.last_offline_at,
-        error: row.health_error,
-      },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -605,14 +597,6 @@ export class CameraService {
         c.fov_deg,
         c.range_meters,
         c.views_count,
-        c.health_status::text as health_status,
-        c.video_codec,
-        c.audio_codec,
-        c.transcoding_required,
-        c.last_checked_at,
-        c.last_online_at,
-        c.last_offline_at,
-        c.health_error,
         c.created_at,
         c.updated_at
       FROM cameras c
@@ -674,14 +658,6 @@ export class CameraService {
           c.fov_deg,
           c.range_meters,
           c.views_count,
-          c.health_status::text as health_status,
-          c.video_codec,
-          c.audio_codec,
-          c.transcoding_required,
-          c.last_checked_at,
-          c.last_online_at,
-          c.last_offline_at,
-          c.health_error,
           c.created_at,
           c.updated_at,
     
@@ -1046,14 +1022,6 @@ export class CameraService {
         c.fov_deg,
         c.range_meters,
         c.views_count,
-        c.health_status::text as health_status,
-        c.video_codec,
-        c.audio_codec,
-        c.transcoding_required,
-        c.last_checked_at,
-        c.last_online_at,
-        c.last_offline_at,
-        c.health_error,
         c.created_at,
         c.updated_at
       FROM cameras c
@@ -1214,7 +1182,7 @@ export class CameraService {
           ELSE last_offline_at
         END,
         status = CASE
-          WHEN status IN ('maintenance', 'planned') THEN status
+          WHEN status = 'maintenance' THEN status
           WHEN ${dto.healthStatus} = 'online' THEN 'online'::camera_status
           WHEN ${dto.healthStatus} = 'offline' THEN 'offline'::camera_status
           ELSE status

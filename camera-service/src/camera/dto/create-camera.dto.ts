@@ -49,10 +49,6 @@ export class CreateCameraDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(CameraStatusDto)
-  status?: CameraStatusDto;
-
-  @IsOptional()
   @IsString()
   city?: string;
 
