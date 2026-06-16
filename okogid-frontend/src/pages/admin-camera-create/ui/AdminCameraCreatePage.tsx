@@ -7,14 +7,12 @@ import {
   type CreateAdminCameraPayload,
 } from '../../../entities/camera/api/adminCamerasApi';
 import type { AdminCamera } from '../../../entities/camera/model/adminCameraTypes';
-import type { CameraStatus } from '../../../entities/camera/model/types';
 import { AdminCameraMapPicker } from '../../../features/admin-camera-map-picker/ui/AdminCameraMapPicker';
 
 type FormState = {
   title: string;
   slug: string;
   description: string;
-  status: CameraStatus;
   city: string;
   address: string;
   category: string;
@@ -32,7 +30,6 @@ const INITIAL_FORM_STATE: FormState = {
   title: '',
   slug: '',
   description: '',
-  status: 'online',
   city: 'Санкт-Петербург',
   address: '',
   category: 'landmark',
@@ -161,19 +158,6 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   );
 }
 
-function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className={[
-        'h-12 w-full rounded-[18px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-4',
-        'font-inter text-sm font-semibold text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-primary)]',
-        props.className ?? '',
-      ].join(' ')}
-    />
-  );
-}
-
 export function AdminCameraCreatePage() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM_STATE);
   const [createdCamera, setCreatedCamera] = useState<AdminCamera | null>(null);
@@ -188,7 +172,6 @@ export function AdminCameraCreatePage() {
       title: form.title.trim(),
       slug: form.slug.trim(),
       description: form.description.trim(),
-      status: form.status,
       city: form.city.trim(),
       address: form.address.trim(),
       category: form.category.trim(),
@@ -408,19 +391,6 @@ export function AdminCameraCreatePage() {
                   onChange={(event) => updateField('slug', event.target.value)}
                   placeholder="palace-square"
                 />
-              </Field>
-
-              <Field label="Статус">
-                <Select
-                  value={form.status}
-                  onChange={(event) =>
-                    updateField('status', event.target.value as CameraStatus)
-                  }
-                >
-                  <option value="online">online</option>
-                  <option value="offline">offline</option>
-                  <option value="maintenance">maintenance</option>
-                </Select>
               </Field>
 
               <Field label="Категория">

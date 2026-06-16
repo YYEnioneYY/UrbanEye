@@ -24,7 +24,6 @@ export type CreateAdminCameraPayload = {
   title: string;
   slug: string;
   description: string;
-  status: CameraStatus;
   city: string;
   address: string;
   category: string;
