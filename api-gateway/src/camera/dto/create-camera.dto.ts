@@ -55,14 +55,6 @@ export class CreateCameraDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({
-    example: 'online',
-    enum: CameraStatusDto,
-  })
-  @IsOptional()
-  @IsEnum(CameraStatusDto)
-  status?: CameraStatusDto;
-
   @ApiPropertyOptional({ example: 'Санкт-Петербург' })
   @IsOptional()
   @IsString()
