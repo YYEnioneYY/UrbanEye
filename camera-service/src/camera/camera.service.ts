@@ -1214,4 +1214,80 @@ export class CameraService {
       lastCheckedAt: camera.last_checked_at,
     };
   }
+
+  async getPreviewTargets(limit: number) {
+    const cameras = await this.prisma.camera.findMany({
+      where: {
+        deletedAt: null,
+        status: 'online',
+        connection: {
+          isNot: null,
+        },
+      },
+      take: limit,
+      orderBy: [
+        {
+          createdAt: 'asc',
+        },
+      ],
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        connection: {
+          select: {
+            encryptedRtspUrl: true,
+            encryptedUsername: true,
+            encryptedPassword: true,
+          },
+        },
+      },
+    });
+
+    return cameras
+      .filter((camera) => camera.connection)
+      .map((camera) => ({
+        cameraId: camera.id,
+        title: camera.title,
+        slug: camera.slug,
+        connection: {
+          rtspUrl: this.encryptionService.decrypt(
+            camera.connection!.encryptedRtspUrl,
+          ),
+          username: this.encryptionService.decrypt(
+            camera.connection!.encryptedUsername,
+          ),
+          password: this.encryptionService.decrypt(
+            camera.connection!.encryptedPassword,
+          ),
+        },
+    }));
+  }
+
+  async updateInternalPreview(cameraId: string, previewUrl: string) {
+    const rows = await this.prisma.$queryRaw<
+      {
+        id: string;
+        preview_url: string | null;
+      }[]
+    >`
+      UPDATE cameras
+      SET preview_url = ${previewUrl},
+          updated_at = NOW()
+      WHERE id = ${cameraId}::uuid
+        AND deleted_at IS NULL
+      RETURNING id::text, preview_url;
+    `;
+    
+    const camera = rows[0];
+    
+    if (!camera) {
+      throw new NotFoundException('Camera not found');
+    }
+  
+    return {
+      cameraId: camera.id,
+      previewUrl: camera.preview_url,
+    };
+  }
 }   
