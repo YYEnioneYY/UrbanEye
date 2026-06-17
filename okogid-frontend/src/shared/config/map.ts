@@ -13,6 +13,7 @@ export const MAP_STYLES = {
 } as const;
 
 export type MapBaseMode = 'default' | 'satellite';
+export type MapViewMode = '2d' | '3d';
 
 export const DEFAULT_MAP_LOCATION = {
   city: 'Санкт-Петербург',

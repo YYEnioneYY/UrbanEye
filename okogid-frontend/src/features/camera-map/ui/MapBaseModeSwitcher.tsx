@@ -1,10 +1,12 @@
 import { Link } from 'react-router';
 
-import type { MapBaseMode } from '../../../shared/config/map';
+import type { MapBaseMode, MapViewMode } from '../../../shared/config/map';
 
 type MapBaseModeSwitcherProps = {
   value: MapBaseMode;
+  viewMode: MapViewMode;
   onChange: (value: MapBaseMode) => void;
+  onViewModeChange: (value: MapViewMode) => void;
 };
 
 const mapBaseModes: {
@@ -18,6 +20,20 @@ const mapBaseModes: {
   {
     value: 'satellite',
     label: 'Спутник',
+  },
+];
+
+const mapViewModes: {
+  value: MapViewMode;
+  label: string;
+}[] = [
+  {
+    value: '2d',
+    label: '2D вид',
+  },
+  {
+    value: '3d',
+    label: '3D вид',
   },
 ];
 
@@ -42,7 +58,9 @@ function CameraListIcon() {
 
 export function MapBaseModeSwitcher({
   value,
+  viewMode,
   onChange,
+  onViewModeChange,
 }: MapBaseModeSwitcherProps) {
   return (
     <div className="absolute bottom-8 right-4 z-20 flex flex-col items-end gap-3">
@@ -53,6 +71,30 @@ export function MapBaseModeSwitcher({
         <CameraListIcon />
         Посмотреть все камеры
       </Link>
+
+      <div className="rounded-[22px] border border-[var(--color-border)] bg-[var(--navbar-bg)] p-1 shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
+        <div className="flex items-center gap-1">
+          {mapViewModes.map((mode) => {
+            const isActive = viewMode === mode.value;
+
+            return (
+              <button
+                key={mode.value}
+                type="button"
+                onClick={() => onViewModeChange(mode.value)}
+                className={[
+                  'h-10 rounded-[18px] px-4 font-inter text-xs font-bold transition',
+                  isActive
+                    ? 'bg-[var(--color-primary)] text-[var(--color-secondary-text)]'
+                    : 'text-[var(--color-text-primary)] hover:bg-[var(--color-bg-soft)] hover:text-[var(--color-primary)]',
+                ].join(' ')}
+              >
+                {mode.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="rounded-[22px] border border-[var(--color-border)] bg-[var(--navbar-bg)] p-1 shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
         <div className="flex items-center gap-1">

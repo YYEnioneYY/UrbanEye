@@ -4,6 +4,10 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 import type { Camera } from '../../../entities/camera/model/types';
 import {
+  ensureBuildings3dLayer,
+  setBuildings3dVisibility,
+} from '../lib/map3dBuildings';
+import {
   getCameraById,
   getCamerasByBbox,
   getCamerasLookingAt,
@@ -14,6 +18,7 @@ import {
   MAP_STYLES,
   getCurrentMapStyle,
   type MapBaseMode,
+  type MapViewMode,
 } from '../../../shared/config/map';
 import { MAP_EVENTS } from '../../../shared/config/mapEvents';
 
@@ -198,6 +203,8 @@ export function CameraMap() {
   const userLocationMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   const mapBaseModeRef = useRef<MapBaseMode>('default');
+  const mapViewModeRef = useRef<MapViewMode>('2d');
+
   const detailsAbortControllerRef = useRef<AbortController | null>(null);
   const lookingAtAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -205,6 +212,8 @@ export function CameraMap() {
   const selectedCameraIdRef = useRef<string | null>(null);
 
   const [mapBaseMode, setMapBaseMode] = useState<MapBaseMode>('default');
+  const [mapViewMode, setMapViewMode] = useState<MapViewMode>('2d');
+
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
   const [isCameraDetailsLoading, setIsCameraDetailsLoading] = useState(false);
 
@@ -246,6 +255,74 @@ export function CameraMap() {
     areaSource?.setData(coverageGeoJson.areas);
     outlineSource?.setData(coverageGeoJson.outlines);
     raySource?.setData(coverageGeoJson.rays);
+  };
+
+  const restoreCustomMapLayers = () => {
+    const map = mapRef.current;
+
+    if (!map || !map.isStyleLoaded()) {
+      return;
+    }
+
+    updateCameraCoverageLayers();
+
+    if (mapViewModeRef.current === '3d') {
+      ensureBuildings3dLayer(map);
+      setBuildings3dVisibility(map, true);
+    }
+  };
+
+  const applyMapViewMode = (nextMode: MapViewMode) => {
+    const map = mapRef.current;
+
+    mapViewModeRef.current = nextMode;
+    setMapViewMode(nextMode);
+
+    if (!map) {
+      return;
+    }
+
+    if (nextMode === '3d') {
+      if (mapBaseModeRef.current === 'satellite') {
+        mapBaseModeRef.current = 'default';
+        setMapBaseMode('default');
+
+        map.setStyle(getCurrentMapStyle('default'));
+
+        map.once('idle', () => {
+          restoreCustomMapLayers();
+
+          map.easeTo({
+            pitch: 62,
+            bearing: -20,
+            zoom: Math.max(map.getZoom(), 15.4),
+            duration: 900,
+          });
+        });
+
+        return;
+      }
+
+      ensureBuildings3dLayer(map);
+      setBuildings3dVisibility(map, true);
+
+      map.easeTo({
+        pitch: 62,
+        bearing: -20,
+        zoom: Math.max(map.getZoom(), 15.4),
+        duration: 900,
+      });
+
+      return;
+    }
+
+    setBuildings3dVisibility(map, false);
+
+    map.easeTo({
+      pitch: 0,
+      bearing: 0,
+      duration: 800,
+    });
   };
 
   const selectCamera = useCallback(async (camera: Camera) => {
@@ -319,15 +396,31 @@ export function CameraMap() {
       return;
     }
 
+    if (nextMode === 'satellite' && mapViewModeRef.current === '3d') {
+      mapViewModeRef.current = '2d';
+      setMapViewMode('2d');
+
+      map.easeTo({
+        pitch: 0,
+        bearing: 0,
+        duration: 500,
+      });
+    }
+
     if (nextMode === 'satellite') {
       map.setStyle(MAP_STYLES.satellite);
+
+      map.once('idle', () => {
+        updateCameraCoverageLayers();
+      });
+
       return;
     }
 
     map.setStyle(getCurrentMapStyle('default'));
 
     map.once('idle', () => {
-      updateCameraCoverageLayers();
+      restoreCustomMapLayers();
     });
   };
 
@@ -418,6 +511,9 @@ export function CameraMap() {
       style: getCurrentMapStyle('default'),
       center: MAP_CONFIG.fallbackCenter,
       zoom: MAP_CONFIG.fallbackZoom,
+      pitch: 0,
+      bearing: 0,
+      maxPitch: 70,
       attributionControl: false,
     });
 
@@ -576,7 +672,7 @@ export function CameraMap() {
       map.setStyle(MAP_STYLES[themeEvent.detail.resolvedTheme]);
 
       map.once('idle', () => {
-        updateCameraCoverageLayers();
+        restoreCustomMapLayers();
       });
     };
 
@@ -669,7 +765,9 @@ export function CameraMap() {
 
       <MapBaseModeSwitcher
         value={mapBaseMode}
+        viewMode={mapViewMode}
         onChange={handleMapBaseModeChange}
+        onViewModeChange={applyMapViewMode}
       />
 
       <LookingAtCamerasPanel
