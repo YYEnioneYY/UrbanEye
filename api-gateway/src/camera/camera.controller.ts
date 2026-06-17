@@ -33,14 +33,14 @@ import { UpdateCameraDto } from './dto/update-camera.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
-import { S3StorageService } from '../storage/s3-storage.service';
+import { MediaClientService } from '../media-client/media-client.service';
 
 @ApiTags('Cameras')
 @Controller()
 export class CameraController {
   constructor(
     private readonly cameraService: CameraService,
-    private readonly s3StorageService: S3StorageService,
+    private readonly mediaClientService: MediaClientService,
   ) {}
 
   @Post('admin/cameras')
@@ -170,7 +170,7 @@ export class CameraController {
     cameraId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const uploadedPreview = await this.s3StorageService.uploadCameraPreview({
+    const uploadedPreview = await this.mediaClientService.uploadCameraPreview({
       cameraId,
       file,
     });

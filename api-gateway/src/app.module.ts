@@ -7,7 +7,7 @@ import { GeoModule } from './geo/geo.module';
 import { CameraStreamModule } from './camera-stream/camera-stream.module';
 import { AdminModule } from './admin/admin.module';
 import { CameraModule } from './camera/camera.module';
-import { StorageModule } from './storage/storage.module';
+import { MediaClientModule } from './media-client/media-client.module';
 
 @Module({
   imports: [
@@ -21,7 +21,7 @@ import { StorageModule } from './storage/storage.module';
     CameraStreamModule,
     AdminModule,
     CameraModule,
-    StorageModule,
+    MediaClientModule,
   ],
 })
 export class AppModule {}
