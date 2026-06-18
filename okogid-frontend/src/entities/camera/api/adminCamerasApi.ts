@@ -271,34 +271,3 @@ export async function deleteAdminCamera(
 
   return response.json() as Promise<DeleteAdminCameraResponse>;
 }
-
-export async function uploadAdminCameraPreview(
-  cameraId: string,
-  file: File,
-  signal?: AbortSignal,
-): Promise<AdminCamera> {
-  const formData = new FormData();
-
-  formData.append('file', file);
-
-  const response = await authFetch(
-    createApiUrl(API_CONFIG.apiBaseUrl, `/admin/cameras/${cameraId}/preview`),
-    {
-      method: 'POST',
-      signal,
-      headers: {
-        Accept: 'application/json',
-      },
-      body: formData,
-    },
-  );
-
-  if (!response.ok) {
-    const message = await getApiErrorMessage(response);
-    throw new Error(message);
-  }
-
-  const data = (await response.json()) as ApiAdminCamera;
-
-  return mapAdminCameraFromApi(data);
-}

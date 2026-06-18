@@ -2,16 +2,13 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ChangeEvent,
   type FormEvent,
   type ReactNode,
 } from 'react';
 
 import type { AdminCamera } from '../../../entities/camera/model/adminCameraTypes';
-import type { CameraStatus } from '../../../entities/camera/model/types';
 import {
   updateAdminCamera,
-  uploadAdminCameraPreview,
   type UpdateAdminCameraPayload,
 } from '../../../entities/camera/api/adminCamerasApi';
 
@@ -25,7 +22,6 @@ type FormState = {
   title: string;
   slug: string;
   description: string;
-  status: CameraStatus;
   city: string;
   address: string;
   category: string;
@@ -48,7 +44,6 @@ function createInitialForm(camera: AdminCamera): FormState {
     title: camera.title,
     slug: camera.slug,
     description: camera.description,
-    status: camera.status,
     city: camera.city,
     address: camera.address,
     category: camera.category,
@@ -109,38 +104,6 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   );
 }
 
-function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className={[
-        'h-12 w-full rounded-[18px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-4',
-        'font-inter text-sm font-semibold text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-primary)]',
-        props.className ?? '',
-      ].join(' ')}
-    />
-  );
-}
-
-function CameraIcon() {
-  return (
-    <svg
-      className="h-8 w-8"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M4 8h10a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
-      <path d="m17 12 5-3v10l-5-3" />
-      <path d="M7 8l1.5-3h4L14 8" />
-    </svg>
-  );
-}
-
 function CloseIcon() {
   return (
     <svg
@@ -165,20 +128,15 @@ export function AdminCameraEditModal({
   onUpdated,
 }: AdminCameraEditModalProps) {
   const [form, setForm] = useState<FormState>(() => createInitialForm(camera));
-  const [previewFile, setPreviewFile] = useState<File | null>(null);
-  const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  const displayPreviewUrl = previewObjectUrl ?? camera.previewUrl ?? null;
 
   const payload = useMemo<UpdateAdminCameraPayload>(() => {
     return {
       title: form.title.trim(),
       slug: form.slug.trim(),
       description: form.description.trim(),
-      status: form.status,
       city: form.city.trim(),
       address: form.address.trim(),
       category: form.category.trim(),
@@ -194,21 +152,6 @@ export function AdminCameraEditModal({
       },
     };
   }, [form]);
-
-  useEffect(() => {
-    if (!previewFile) {
-      setPreviewObjectUrl(null);
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(previewFile);
-
-    setPreviewObjectUrl(objectUrl);
-
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-  }, [previewFile]);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -237,26 +180,6 @@ export function AdminCameraEditModal({
       ...prev,
       [field]: value,
     }));
-  };
-
-  const handlePreviewFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-
-    setError(null);
-
-    if (!file) {
-      setPreviewFile(null);
-      return;
-    }
-
-    if (!file.type.startsWith('image/')) {
-      setError('Можно выбрать только изображение');
-      event.target.value = '';
-      setPreviewFile(null);
-      return;
-    }
-
-    setPreviewFile(file);
   };
 
   const validateForm = () => {
@@ -322,19 +245,7 @@ export function AdminCameraEditModal({
     try {
       setIsLoading(true);
 
-      const updatedCamera = await updateAdminCamera(
-        camera.id,
-        payload,
-        abortController.signal,
-      );
-
-      if (previewFile) {
-        await uploadAdminCameraPreview(
-          updatedCamera.id,
-          previewFile,
-          abortController.signal,
-        );
-      }
+      await updateAdminCamera(camera.id, payload, abortController.signal);
 
       onUpdated();
       onClose();
@@ -393,76 +304,6 @@ export function AdminCameraEditModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="rounded-[28px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] p-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-              <div className="relative h-44 w-full overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-[var(--color-surface)] lg:w-[300px]">
-                {displayPreviewUrl ? (
-                  <img
-                    src={displayPreviewUrl}
-                    alt={camera.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center text-center text-[var(--color-text-muted)]">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-primary)] text-[var(--color-secondary-text)]">
-                      <CameraIcon />
-                    </div>
-
-                    <p className="mt-3 font-inter text-sm font-bold">
-                      Превью не загружено
-                    </p>
-                  </div>
-                )}
-
-                {previewFile && (
-                  <div className="absolute left-3 top-3 rounded-full bg-[var(--color-primary)] px-3 py-1 font-inter text-xs font-extrabold text-[var(--color-secondary-text)] shadow-lg">
-                    Новое превью
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1">
-                <h3 className="text-xl font-extrabold text-[var(--color-text-primary)]">
-                  Превью камеры
-                </h3>
-
-                <p className="mt-2 font-inter text-sm leading-6 text-[var(--color-text-secondary)]">
-                  Выберите новое изображение, чтобы заменить превью камеры.
-                  Текущее изображение останется, если файл не выбран.
-                </p>
-
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                  <label className="inline-flex h-12 cursor-pointer items-center justify-center rounded-[18px] bg-[var(--button-third-bg)] px-5 font-inter text-sm font-extrabold text-[var(--button-third-text)] transition hover:scale-[1.02] hover:bg-[var(--button-third-hover)]">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePreviewFileChange}
-                      className="hidden"
-                    />
-
-                    Выбрать новое превью
-                  </label>
-
-                  {previewFile && (
-                    <button
-                      type="button"
-                      onClick={() => setPreviewFile(null)}
-                      disabled={isLoading}
-                      className="h-12 rounded-[18px] border border-red-500/20 bg-red-500/10 px-5 font-inter text-sm font-bold text-red-600 transition hover:bg-red-500 hover:text-white disabled:opacity-60"
-                    >
-                      Убрать выбранное
-                    </button>
-                  )}
-                </div>
-
-                {previewFile && (
-                  <p className="mt-3 truncate font-inter text-xs font-bold text-[var(--color-text-secondary)]">
-                    Файл: {previewFile.name}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <Field label="Название">
@@ -479,20 +320,6 @@ export function AdminCameraEditModal({
                 onChange={(event) => updateField('slug', event.target.value)}
                 placeholder="spb-bronze-horseman"
               />
-            </Field>
-
-            <Field label="Статус">
-              <Select
-                value={form.status}
-                onChange={(event) =>
-                  updateField('status', event.target.value as CameraStatus)
-                }
-              >
-                <option value="online">online</option>
-                <option value="offline">offline</option>
-                <option value="maintenance">maintenance</option>
-                <option value="planned">planned</option>
-              </Select>
             </Field>
 
             <Field label="Категория">
@@ -653,11 +480,7 @@ export function AdminCameraEditModal({
             disabled={isLoading}
             className="h-12 rounded-[18px] bg-[var(--button-third-bg)] px-6 font-inter text-sm font-extrabold text-[var(--button-third-text)] transition hover:scale-[1.02] hover:bg-[var(--button-third-hover)] disabled:cursor-wait disabled:opacity-70"
           >
-            {isLoading
-              ? previewFile
-                ? 'Сохраняем и загружаем превью...'
-                : 'Сохраняем...'
-              : 'Сохранить изменения'}
+            {isLoading ? 'Сохраняем...' : 'Сохранить изменения'}
           </button>
         </div>
       </form>
