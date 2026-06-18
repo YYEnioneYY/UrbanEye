@@ -1,8 +1,4 @@
-import {
-  BadGatewayException,
-  BadRequestException,
-  Injectable,
-} from '@nestjs/common';
+import { BadGatewayException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
@@ -30,26 +26,6 @@ export class S3StorageService {
         secretAccessKey:
           this.configService.getOrThrow<string>('S3_SECRET_KEY'),
       },
-    });
-  }
-
-  async uploadCameraPreviewFile(params: {
-    cameraId: string;
-    file: Express.Multer.File;
-  }) {
-    const { cameraId, file } = params;
-
-    if (!file) {
-      throw new BadRequestException('Preview image file is required');
-    }
-
-    const extension = this.getExtensionByMimeType(file.mimetype);
-
-    return this.uploadCameraPreviewBuffer({
-      cameraId,
-      buffer: file.buffer,
-      contentType: file.mimetype,
-      extension,
     });
   }
 
@@ -94,23 +70,5 @@ export class S3StorageService {
         message: err?.message ?? 'Failed to upload file to S3',
       });
     }
-  }
-
-  private getExtensionByMimeType(mimeType: string): string {
-    if (mimeType === 'image/jpeg') {
-      return 'jpg';
-    }
-
-    if (mimeType === 'image/png') {
-      return 'png';
-    }
-
-    if (mimeType === 'image/webp') {
-      return 'webp';
-    }
-
-    throw new BadRequestException(
-      'Only jpeg, png and webp images are allowed',
-    );
   }
 }
