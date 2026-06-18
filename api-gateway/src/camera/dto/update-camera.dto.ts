@@ -76,15 +76,6 @@ export class UpdateCameraDto {
   @IsString()
   category?: string;
 
-  @ApiPropertyOptional({
-    example: 'https://s3.example.com/okogid/cameras/spb-palace-square.jpg',
-    nullable: true,
-    description: 'URL превью камеры. Передай null, чтобы очистить превью.',
-  })
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  previewUrl?: string | null;
-
   @ApiPropertyOptional({ example: 59.9398 })
   @IsOptional()
   @Type(() => Number)

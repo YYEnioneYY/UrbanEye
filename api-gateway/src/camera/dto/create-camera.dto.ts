@@ -71,14 +71,6 @@ export class CreateCameraDto {
   category?: string;
 
   @ApiPropertyOptional({
-    example: 'https://s3.example.com/okogid/cameras/spb-palace-square.jpg',
-    description: 'URL превью камеры',
-  })
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  previewUrl?: string;
-
-  @ApiPropertyOptional({
     example: 90,
     description: 'Азимут направления камеры: 0 север, 90 восток, 180 юг, 270 запад',
   })
