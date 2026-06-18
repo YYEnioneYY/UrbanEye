@@ -60,10 +60,6 @@ export class CreateCameraDto {
   @IsString()
   category?: string;
 
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  previewUrl?: string;
-
   @IsLatitude()
   latitude!: number;
 

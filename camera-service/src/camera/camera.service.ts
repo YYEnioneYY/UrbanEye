@@ -115,7 +115,7 @@ export class CameraService {
             ${dto.city ?? null},
             ${dto.address ?? null},
             ${dto.category ?? null},
-            ${dto.previewUrl ?? null},
+            ${null},
             ST_SetSRID(
               ST_MakePoint(
                 CAST(${longitude} AS double precision),
@@ -816,10 +816,6 @@ export class CameraService {
 
     if (dto.category !== undefined) {
       updates.push(Prisma.sql`category = ${dto.category}`);
-    }
-
-    if (dto.previewUrl !== undefined) {
-      updates.push(Prisma.sql`preview_url = ${dto.previewUrl}`);
     }
 
     if (dto.latitude !== undefined && dto.longitude !== undefined) {

@@ -62,10 +62,6 @@ export class UpdateCameraDto {
   category?: string;
 
   @IsOptional()
-  @IsUrl({ require_tld: false })
-  previewUrl?: string | null;
-
-  @IsOptional()
   @Type(() => Number)
   @IsLatitude()
   latitude?: number;
