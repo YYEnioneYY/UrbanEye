@@ -37,6 +37,19 @@ export class KafkaClientService implements OnModuleInit, OnModuleDestroy {
     'camera.admin.cameras.update',
     'camera.admin.cameras.delete',
 
+
+    'camera.public.intersections.find_by_bbox',
+    'camera.public.intersections.find_by_id',
+    'camera.public.intersections.find_cameras_by_id',
+      
+    'camera.admin.intersections.create',
+    'camera.admin.intersections.find_all',
+    'camera.admin.intersections.find_by_id',
+    'camera.admin.intersections.update',
+    'camera.admin.intersections.delete',
+    'camera.admin.intersections.create_camera',
+    'camera.admin.intersections.find_cameras',
+
     /* StreamService */
     'streams.get_by_camera_id',
     'streams.get_status_by_camera_id',
