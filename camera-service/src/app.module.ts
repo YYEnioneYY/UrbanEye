@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { CameraModule } from './camera/camera.module';
 import { EncryptionModule } from './encryption/encryption.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { IntersectionModule } from './intersection/intersection.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { PrismaModule } from './prisma/prisma.module';
     PrismaModule,
     EncryptionModule,
     CameraModule,
+    IntersectionModule,
   ],
 })
 export class AppModule {}

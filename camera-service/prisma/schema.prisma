@@ -54,6 +54,11 @@ model Camera {
   lastOfflineAt       DateTime?          @map("last_offline_at")
   healthError         String?            @map("health_error")
 
+  intersectionId String? @map("intersection_id") @db.Uuid
+  mapVisible     Boolean @default(true) @map("map_visible")
+  
+  intersection Intersection? @relation(fields: [intersectionId], references: [id], onDelete: SetNull)
+
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
@@ -77,4 +82,35 @@ model CameraConnection {
   camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@map("camera_connections")
+}
+
+model Intersection {
+  id          String  @id @default(uuid()) @db.Uuid
+  title       String
+  slug        String  @unique
+  description String?
+
+  city        String?
+  address     String?
+  category    String?
+
+  status      IntersectionStatus @default(active)
+
+  location    Unsupported("geometry(Point, 4326)")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  cameras     Camera[]
+
+  @@map("intersections")
+}
+
+enum IntersectionStatus {
+  active
+  hidden
+  maintenance
+
+  @@map("intersection_status")
 }

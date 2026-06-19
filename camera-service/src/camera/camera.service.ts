@@ -224,10 +224,12 @@ export class CameraService {
         fov_deg,
         range_meters,
         views_count,
+        map_visible,
         created_at,
         updated_at
       FROM cameras
       WHERE deleted_at IS NULL
+        AND c.map_visible = true
         AND ST_Intersects(
           location::geometry,
           ST_MakeEnvelope(${dto.minLng}, ${dto.minLat}, ${dto.maxLng}, ${dto.maxLat}, 4326)
@@ -597,6 +599,7 @@ export class CameraService {
         c.fov_deg,
         c.range_meters,
         c.views_count,
+        с.map_visible,
         c.created_at,
         c.updated_at
       FROM cameras c
@@ -658,6 +661,7 @@ export class CameraService {
           c.fov_deg,
           c.range_meters,
           c.views_count,
+          c.map_visible,
           c.created_at,
           c.updated_at,
     
@@ -673,6 +677,7 @@ export class CameraService {
         FROM cameras c
         CROSS JOIN target
         WHERE c.deleted_at IS NULL
+          AND c.map_visible = true
           AND c.direction_deg IS NOT NULL
           AND ST_DWithin(
             c.location::geography,
