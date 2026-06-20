@@ -58,7 +58,7 @@ export class IntersectionService {
 
   async create(dto: CreateIntersectionDto) {
     const intersectionId = randomUUID();
-    const slug = this.createSlug(dto.title, dto.slug);
+    const slug = await this.createUniqueIntersectionSlug(dto.title, dto.slug);
 
     const rows = await this.prisma.$queryRaw<IntersectionRow[]>`
       INSERT INTO intersections (
@@ -331,7 +331,7 @@ export class IntersectionService {
     }
 
     const cameraId = randomUUID();
-    const slug = this.createSlug(dto.title, dto.slug);
+    const slug = await this.createUniqueCameraSlug(dto.title, dto.slug);
 
     const latitude =
       dto.latitude === undefined ? Number(intersection.latitude) : dto.latitude;
@@ -651,5 +651,49 @@ export class IntersectionService {
     }
 
     return this.encryptionService.encrypt(value);
+  }
+
+  private async createUniqueCameraSlug(title: string, slug?: string) {
+    const baseSlug = this.createSlug(title, slug);
+    
+    let candidate = baseSlug;
+    
+    for (let index = 1; index <= 1000; index += 1) {
+      const rows = await this.prisma.$queryRaw<{ count: number }[]>`
+        SELECT COUNT(*)::int as count
+        FROM cameras
+        WHERE slug = ${candidate};
+      `;
+    
+      if (Number(rows[0]?.count ?? 0) === 0) {
+        return candidate;
+      }
+    
+      candidate = `${baseSlug}-${index + 1}`;
+    }
+  
+    throw new BadRequestException('Could not generate unique camera slug');
+  }
+  
+  private async createUniqueIntersectionSlug(title: string, slug?: string) {
+    const baseSlug = this.createSlug(title, slug);
+  
+    let candidate = baseSlug;
+  
+    for (let index = 1; index <= 1000; index += 1) {
+      const rows = await this.prisma.$queryRaw<{ count: number }[]>`
+        SELECT COUNT(*)::int as count
+        FROM intersections
+        WHERE slug = ${candidate};
+      `;
+    
+      if (Number(rows[0]?.count ?? 0) === 0) {
+        return candidate;
+      }
+    
+      candidate = `${baseSlug}-${index + 1}`;
+    }
+  
+    throw new BadRequestException('Could not generate unique intersection slug');
   }
 }
