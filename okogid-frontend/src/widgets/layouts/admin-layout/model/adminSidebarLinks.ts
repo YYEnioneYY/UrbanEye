@@ -2,7 +2,16 @@ export type AdminSidebarLink = {
   label: string;
   path: string;
   description: string;
-  icon: 'overview' | 'cameraAdd' | 'cameras' | 'users' | 'statistics' | 'services' | 'settings';
+  icon:
+    | 'overview'
+    | 'cameraAdd'
+    | 'cameras'
+    | 'intersectionAdd'
+    | 'intersections'
+    | 'users'
+    | 'statistics'
+    | 'services'
+    | 'settings';
 };
 
 export const adminSidebarLinks: AdminSidebarLink[] = [
@@ -23,6 +32,18 @@ export const adminSidebarLinks: AdminSidebarLink[] = [
     path: '/admin-dashboard/cameras',
     description: 'Список всех камер',
     icon: 'cameras',
+  },
+  {
+    label: 'Добавить перекрёсток',
+    path: '/admin-dashboard/intersections-add',
+    description: 'Создание перекрёстка и камер',
+    icon: 'intersectionAdd',
+  },
+  {
+    label: 'Перекрёстки',
+    path: '/admin-dashboard/intersections',
+    description: 'Камеры на перекрёстках',
+    icon: 'intersections',
   },
   {
     label: 'Пользователи',

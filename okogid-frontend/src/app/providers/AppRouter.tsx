@@ -33,6 +33,8 @@ import { AdminServicesPage } from '../../pages/admin-services/ui/AdminServicesPa
 import { AdminPlaceholderPage } from '../../pages/admin/ui/AdminPlaceholderPage';
 import { AdminCamerasPage } from '../../pages/admin-cameras/ui/AdminCamerasPage';
 import { AdminCameraCreatePage } from '../../pages/admin-camera-create/ui/AdminCameraCreatePage';
+import { AdminIntersectionsPage } from '../../pages/admin-intersections/ui/AdminIntersectionsPage';
+import { AdminIntersectionCreatePage } from '../../pages/admin-intersection-create/ui/AdminIntersectionCreatePage';
 
 export function AppRouter() {
   return (
@@ -76,6 +78,10 @@ export function AppRouter() {
           <Route path="cameras-add" element={<AdminCameraCreatePage />} />
 
           <Route path="cameras" element={<AdminCamerasPage />} />
+
+          <Route path="/admin-dashboard/intersections-add" element={<AdminIntersectionCreatePage />} />
+
+          <Route path="/admin-dashboard/intersections" element={<AdminIntersectionsPage />} />
 
           <Route path="users" element={<AdminUsersPage />} />
 

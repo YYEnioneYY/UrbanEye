@@ -164,11 +164,59 @@ function SettingsIcon() {
   );
 }
 
+function IntersectionIcon() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3v18" />
+      <path d="M3 12h18" />
+      <path d="m8 7 4-4 4 4" />
+      <path d="m17 8 4 4-4 4" />
+      <path d="m16 17-4 4-4-4" />
+      <path d="m7 16-4-4 4-4" />
+    </svg>
+  );
+}
+
+function IntersectionAddIcon() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3v18" />
+      <path d="M3 12h18" />
+      <path d="m8 7 4-4 4 4" />
+      <path d="m17 8 4 4-4 4" />
+      <path d="m16 17-4 4-4-4" />
+      <path d="m7 16-4-4 4-4" />
+      <path d="M18 18h4" />
+      <path d="M20 16v4" />
+    </svg>
+  );
+}
+
 function getAdminSidebarIcon(icon: AdminSidebarLink['icon']) {
   const icons: Record<AdminSidebarLink['icon'], ReactNode> = {
     overview: <OverviewIcon />,
     cameraAdd: <CameraAddIcon />,
     cameras: <CamerasIcon />,
+    intersectionAdd: <IntersectionAddIcon />,
+    intersections: <IntersectionIcon />,
     users: <UsersIcon />,
     statistics: <StatisticsIcon />,
     services: <ServicesIcon />,
