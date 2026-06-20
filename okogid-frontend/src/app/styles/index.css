@@ -343,3 +343,106 @@ html.theme-changing *::before,
 html.theme-changing *::after {
   transition: none !important;
 }
+
+
+
+
+
+
+
+.okogid-intersection-marker {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.okogid-intersection-marker__body {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border: 2px solid rgba(15, 19, 24, 0.18);
+  border-radius: 18px;
+  background: #ffd21e;
+  color: #0f1318;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.28),
+    0 0 0 8px rgba(255, 210, 30, 0.18);
+  transform: rotate(45deg);
+  transition:
+    scale 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.okogid-intersection-marker:hover .okogid-intersection-marker__body {
+  scale: 1.08;
+  box-shadow:
+    0 22px 48px rgba(0, 0, 0, 0.34),
+    0 0 0 10px rgba(255, 210, 30, 0.22);
+}
+
+.okogid-intersection-marker__inner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transform: rotate(-45deg);
+}
+
+.okogid-intersection-marker__cross {
+  position: relative;
+  width: 24px;
+  height: 24px;
+}
+
+.okogid-intersection-marker__cross::before,
+.okogid-intersection-marker__cross::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+.okogid-intersection-marker__cross::before {
+  width: 24px;
+  height: 5px;
+}
+
+.okogid-intersection-marker__cross::after {
+  width: 5px;
+  height: 24px;
+}
+
+.okogid-intersection-marker__count {
+  position: absolute;
+  right: -9px;
+  top: -9px;
+  display: inline-flex;
+  min-width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #0f1318;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0f1318;
+  font-family: Inter, sans-serif;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  transform: rotate(-45deg);
+}
+
+.okogid-intersection-marker--offline .okogid-intersection-marker__body {
+  background: #ffffff;
+  color: #0f1318;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.22),
+    0 0 0 8px rgba(255, 255, 255, 0.22);
+}

@@ -13,6 +13,7 @@ import { ResetPasswordPage } from '../../pages/reset-password/ui/ResetPasswordPa
 import { ProfilePage } from '../../pages/profile/ui/ProfilePage';
 import { CamerasListPage } from '../../pages/cameras-list/ui/CamerasListPage';
 import { CamerasMonitorPage } from '../../pages/cameras-monitor/ui/CamerasMonitorPage';
+import { IntersectionViewPage } from '../../pages/intersection-view/ui/IntersectionViewPage';
 
 import { NotFoundPage } from '../../pages/not-found/ui/NotFoundPage';
 
@@ -54,6 +55,7 @@ export function AppRouter() {
 
       <Route element={<CameraViewLayout />}>
         <Route path="/cameras/:cameraId" element={<CameraViewPage />} />
+        <Route path="/intersections/:intersectionId" element={<IntersectionViewPage />} />
       </Route>
 
       <Route element={<AuthLayout />}>

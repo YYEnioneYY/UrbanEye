@@ -4,14 +4,16 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 import type { Camera } from '../../../entities/camera/model/types';
 import {
-  ensureBuildings3dLayer,
-  setBuildings3dVisibility,
-} from '../lib/map3dBuildings';
-import {
   getCameraById,
   getCamerasByBbox,
   getCamerasLookingAt,
 } from '../../../entities/camera/api/camerasApi';
+
+import {
+  getIntersectionById,
+  getIntersectionsByBbox,
+} from '../../../entities/intersection/api/intersectionsApi';
+import type { Intersection } from '../../../entities/intersection/model/types';
 
 import {
   MAP_CONFIG,
@@ -27,11 +29,16 @@ import { createCameraMarkerElement } from '../lib/createCameraMarkerElement';
 import { createUserLocationMarkerElement } from '../lib/createUserLocationMarkerElement';
 import { getBrowserGeoLocation } from '../lib/getBrowserGeoLocation';
 import { createCameraCoverageGeoJson } from '../lib/createCameraCoverageGeoJson';
+import {
+  ensureBuildings3dLayer,
+  setBuildings3dVisibility,
+} from '../lib/map3dBuildings';
 
 import { CameraDetailsPanel } from './CameraDetailsPanel';
 import { LookingAtCamerasPanel } from './LookingAtCamerasPanel';
 import { MapBaseModeSwitcher } from './MapBaseModeSwitcher';
 import { MapContextMenu } from './MapContextMenu';
+import { IntersectionDetailsCard } from './IntersectionDetailsCard';
 
 type MapContextMenuState = {
   x: number;
@@ -195,11 +202,42 @@ function ensureCameraCoverageLayers(map: maplibregl.Map) {
   }
 }
 
+function createIntersectionMarkerElement(intersection: Intersection) {
+  const element = document.createElement('button');
+
+  element.type = 'button';
+  element.title = intersection.title;
+
+  element.className = [
+    'okogid-intersection-marker',
+    intersection.onlineCamerasCount > 0
+      ? ''
+      : 'okogid-intersection-marker--offline',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  element.innerHTML = `
+    <span class="okogid-intersection-marker__body">
+      <span class="okogid-intersection-marker__inner">
+        <span class="okogid-intersection-marker__cross"></span>
+      </span>
+
+      <span class="okogid-intersection-marker__count">
+        ${intersection.onlineCamerasCount}/${intersection.camerasCount}
+      </span>
+    </span>
+  `;
+
+  return element;
+}
+
 export function CameraMap() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
   const cameraMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const intersectionMarkersRef = useRef<maplibregl.Marker[]>([]);
   const userLocationMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   const mapBaseModeRef = useRef<MapBaseMode>('default');
@@ -207,8 +245,10 @@ export function CameraMap() {
 
   const detailsAbortControllerRef = useRef<AbortController | null>(null);
   const lookingAtAbortControllerRef = useRef<AbortController | null>(null);
+  const intersectionAbortControllerRef = useRef<AbortController | null>(null);
 
   const visibleCamerasRef = useRef<Camera[]>([]);
+  const visibleIntersectionsRef = useRef<Intersection[]>([]);
   const selectedCameraIdRef = useRef<string | null>(null);
 
   const [mapBaseMode, setMapBaseMode] = useState<MapBaseMode>('default');
@@ -216,6 +256,13 @@ export function CameraMap() {
 
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
   const [isCameraDetailsLoading, setIsCameraDetailsLoading] = useState(false);
+
+  const [selectedIntersection, setSelectedIntersection] =
+    useState<Intersection | null>(null);
+  const [isIntersectionLoading, setIsIntersectionLoading] = useState(false);
+  const [intersectionError, setIntersectionError] = useState<string | null>(
+    null,
+  );
 
   const [isCamerasLoading, setIsCamerasLoading] = useState(true);
   const [camerasError, setCamerasError] = useState<string | null>(null);
@@ -226,7 +273,7 @@ export function CameraMap() {
   const [lookingAtPanel, setLookingAtPanel] =
     useState<LookingAtPanelState>(INITIAL_LOOKING_AT_PANEL_STATE);
 
-  const updateCameraCoverageLayers = () => {
+  const updateCameraCoverageLayers = useCallback(() => {
     const map = mapRef.current;
 
     if (!map || !map.isStyleLoaded()) {
@@ -255,9 +302,19 @@ export function CameraMap() {
     areaSource?.setData(coverageGeoJson.areas);
     outlineSource?.setData(coverageGeoJson.outlines);
     raySource?.setData(coverageGeoJson.rays);
-  };
+  }, []);
 
-  const restoreCustomMapLayers = () => {
+  const clearCameraMarkers = useCallback(() => {
+    cameraMarkersRef.current.forEach((marker) => marker.remove());
+    cameraMarkersRef.current = [];
+  }, []);
+
+  const clearIntersectionMarkers = useCallback(() => {
+    intersectionMarkersRef.current.forEach((marker) => marker.remove());
+    intersectionMarkersRef.current = [];
+  }, []);
+
+  const restoreCustomMapLayers = useCallback(() => {
     const map = mapRef.current;
 
     if (!map || !map.isStyleLoaded()) {
@@ -270,165 +327,297 @@ export function CameraMap() {
       ensureBuildings3dLayer(map);
       setBuildings3dVisibility(map, true);
     }
-  };
+  }, [updateCameraCoverageLayers]);
 
-  const applyMapViewMode = (nextMode: MapViewMode) => {
-    const map = mapRef.current;
+  const handleCloseCameraDetails = useCallback(() => {
+    selectedCameraIdRef.current = null;
+    setSelectedCamera(null);
+    updateCameraCoverageLayers();
+  }, [updateCameraCoverageLayers]);
 
-    mapViewModeRef.current = nextMode;
-    setMapViewMode(nextMode);
+  const handleCloseIntersectionDetails = useCallback(() => {
+    setSelectedIntersection(null);
+    setIntersectionError(null);
+  }, []);
 
-    if (!map) {
-      return;
-    }
+  const selectIntersection = useCallback(
+    async (intersectionId: string) => {
+      const map = mapRef.current;
 
-    if (nextMode === '3d') {
-      if (mapBaseModeRef.current === 'satellite') {
-        mapBaseModeRef.current = 'default';
-        setMapBaseMode('default');
+      intersectionAbortControllerRef.current?.abort();
 
-        map.setStyle(getCurrentMapStyle('default'));
+      const abortController = new AbortController();
+      intersectionAbortControllerRef.current = abortController;
 
-        map.once('idle', () => {
-          restoreCustomMapLayers();
+      setSelectedCamera(null);
+      selectedCameraIdRef.current = null;
+      updateCameraCoverageLayers();
 
+      setIntersectionError(null);
+      setIsIntersectionLoading(true);
+
+      try {
+        const intersection = await getIntersectionById(
+          intersectionId,
+          abortController.signal,
+        );
+
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setSelectedIntersection(intersection);
+
+        if (map) {
           map.easeTo({
-            pitch: 62,
-            bearing: -20,
-            zoom: Math.max(map.getZoom(), 15.4),
-            duration: 900,
+            center: [intersection.longitude, intersection.latitude],
+            zoom: Math.max(map.getZoom(), 15.5),
+            duration: 700,
+            offset: [-220, 0],
           });
+        }
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Не удалось загрузить перекрёсток';
+
+        setIntersectionError(message);
+      } finally {
+        if (!abortController.signal.aborted) {
+          setIsIntersectionLoading(false);
+        }
+      }
+    },
+    [updateCameraCoverageLayers],
+  );
+
+  const renderIntersectionMarkers = useCallback(
+    (intersections: Intersection[]) => {
+      const map = mapRef.current;
+
+      if (!map) {
+        return;
+      }
+
+      clearIntersectionMarkers();
+
+      const markers = intersections.map((intersection) => {
+        const element = createIntersectionMarkerElement(intersection);
+
+        element.addEventListener('click', (event) => {
+          event.stopPropagation();
+          void selectIntersection(intersection.id);
+        });
+
+        return new maplibregl.Marker({
+          element,
+          anchor: 'bottom',
+        })
+          .setLngLat([intersection.longitude, intersection.latitude])
+          .addTo(map);
+      });
+
+      intersectionMarkersRef.current = markers;
+    },
+    [clearIntersectionMarkers, selectIntersection],
+  );
+
+  const selectCamera = useCallback(
+    async (camera: Camera) => {
+      selectedCameraIdRef.current = camera.id;
+      setSelectedCamera(camera);
+      setSelectedIntersection(null);
+      setIntersectionError(null);
+
+      updateCameraCoverageLayers();
+
+      const map = mapRef.current;
+
+      if (map) {
+        map.easeTo({
+          center: [camera.longitude, camera.latitude],
+          zoom: Math.max(map.getZoom(), 14),
+          duration: 700,
+          offset: [-220, 0],
+        });
+      }
+
+      detailsAbortControllerRef.current?.abort();
+
+      const abortController = new AbortController();
+      detailsAbortControllerRef.current = abortController;
+
+      try {
+        setIsCameraDetailsLoading(true);
+
+        const freshCamera = await getCameraById(
+          camera.id,
+          abortController.signal,
+        );
+
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setSelectedCamera(freshCamera);
+
+        visibleCamerasRef.current = visibleCamerasRef.current.map((item) =>
+          item.id === freshCamera.id ? freshCamera : item,
+        );
+
+        updateCameraCoverageLayers();
+      } catch (error) {
+        if (!abortController.signal.aborted) {
+          console.warn('Failed to load camera details:', error);
+        }
+      } finally {
+        if (!abortController.signal.aborted) {
+          setIsCameraDetailsLoading(false);
+        }
+      }
+    },
+    [updateCameraCoverageLayers],
+  );
+
+  const renderCameraMarkers = useCallback(
+    (cameras: Camera[]) => {
+      const map = mapRef.current;
+
+      if (!map) {
+        return;
+      }
+
+      clearCameraMarkers();
+
+      const markers = cameras.map((camera) => {
+        const element = createCameraMarkerElement(camera);
+
+        const button = element.querySelector<HTMLButtonElement>(
+          '.camera-marker__button',
+        );
+
+        button?.addEventListener('click', () => {
+          void selectCamera(camera);
+        });
+
+        return new maplibregl.Marker({
+          element,
+          anchor: 'center',
+        })
+          .setLngLat([camera.longitude, camera.latitude])
+          .addTo(map);
+      });
+
+      cameraMarkersRef.current = markers;
+    },
+    [clearCameraMarkers, selectCamera],
+  );
+
+  const applyMapViewMode = useCallback(
+    (nextMode: MapViewMode) => {
+      const map = mapRef.current;
+
+      mapViewModeRef.current = nextMode;
+      setMapViewMode(nextMode);
+
+      if (!map) {
+        return;
+      }
+
+      if (nextMode === '3d') {
+        if (mapBaseModeRef.current === 'satellite') {
+          mapBaseModeRef.current = 'default';
+          setMapBaseMode('default');
+
+          map.setStyle(getCurrentMapStyle('default'));
+
+          map.once('idle', () => {
+            restoreCustomMapLayers();
+
+            map.easeTo({
+              pitch: 62,
+              bearing: -20,
+              zoom: Math.max(map.getZoom(), 15.4),
+              duration: 900,
+            });
+          });
+
+          return;
+        }
+
+        ensureBuildings3dLayer(map);
+        setBuildings3dVisibility(map, true);
+
+        map.easeTo({
+          pitch: 62,
+          bearing: -20,
+          zoom: Math.max(map.getZoom(), 15.4),
+          duration: 900,
         });
 
         return;
       }
 
-      ensureBuildings3dLayer(map);
-      setBuildings3dVisibility(map, true);
-
-      map.easeTo({
-        pitch: 62,
-        bearing: -20,
-        zoom: Math.max(map.getZoom(), 15.4),
-        duration: 900,
-      });
-
-      return;
-    }
-
-    setBuildings3dVisibility(map, false);
-
-    map.easeTo({
-      pitch: 0,
-      bearing: 0,
-      duration: 800,
-    });
-  };
-
-  const selectCamera = useCallback(async (camera: Camera) => {
-    selectedCameraIdRef.current = camera.id;
-    updateCameraCoverageLayers();
-
-    setLookingAtPanel((prev) => ({
-      ...prev,
-      isOpen: false,
-    }));
-
-    setSelectedCamera(camera);
-
-    const map = mapRef.current;
-
-    if (map) {
-      map.easeTo({
-        center: [camera.longitude, camera.latitude],
-        zoom: Math.max(map.getZoom(), 14),
-        duration: 700,
-        offset: [-220, 0],
-      });
-    }
-
-    detailsAbortControllerRef.current?.abort();
-
-    const abortController = new AbortController();
-    detailsAbortControllerRef.current = abortController;
-
-    try {
-      setIsCameraDetailsLoading(true);
-
-      const freshCamera = await getCameraById(
-        camera.id,
-        abortController.signal,
-      );
-
-      if (abortController.signal.aborted) {
-        return;
-      }
-
-      setSelectedCamera(freshCamera);
-
-      visibleCamerasRef.current = visibleCamerasRef.current.map((item) =>
-        item.id === freshCamera.id ? freshCamera : item,
-      );
-
-      updateCameraCoverageLayers();
-    } catch (error) {
-      if (!abortController.signal.aborted) {
-        console.warn('Failed to load camera details:', error);
-      }
-    } finally {
-      if (!abortController.signal.aborted) {
-        setIsCameraDetailsLoading(false);
-      }
-    }
-  }, []);
-
-  const handleMapBaseModeChange = (nextMode: MapBaseMode) => {
-    if (mapBaseModeRef.current === nextMode) {
-      return;
-    }
-
-    setMapBaseMode(nextMode);
-    mapBaseModeRef.current = nextMode;
-
-    const map = mapRef.current;
-
-    if (!map) {
-      return;
-    }
-
-    if (nextMode === 'satellite' && mapViewModeRef.current === '3d') {
-      mapViewModeRef.current = '2d';
-      setMapViewMode('2d');
+      setBuildings3dVisibility(map, false);
 
       map.easeTo({
         pitch: 0,
         bearing: 0,
-        duration: 500,
+        duration: 800,
       });
-    }
+    },
+    [restoreCustomMapLayers],
+  );
 
-    if (nextMode === 'satellite') {
-      map.setStyle(MAP_STYLES.satellite);
+  const handleMapBaseModeChange = useCallback(
+    (nextMode: MapBaseMode) => {
+      if (mapBaseModeRef.current === nextMode) {
+        return;
+      }
+
+      setMapBaseMode(nextMode);
+      mapBaseModeRef.current = nextMode;
+
+      const map = mapRef.current;
+
+      if (!map) {
+        return;
+      }
+
+      if (nextMode === 'satellite' && mapViewModeRef.current === '3d') {
+        mapViewModeRef.current = '2d';
+        setMapViewMode('2d');
+
+        map.easeTo({
+          pitch: 0,
+          bearing: 0,
+          duration: 500,
+        });
+      }
+
+      if (nextMode === 'satellite') {
+        map.setStyle(MAP_STYLES.satellite);
+
+        map.once('idle', () => {
+          updateCameraCoverageLayers();
+        });
+
+        return;
+      }
+
+      map.setStyle(getCurrentMapStyle('default'));
 
       map.once('idle', () => {
-        updateCameraCoverageLayers();
+        restoreCustomMapLayers();
       });
-
-      return;
-    }
-
-    map.setStyle(getCurrentMapStyle('default'));
-
-    map.once('idle', () => {
-      restoreCustomMapLayers();
-    });
-  };
-
-  const handleCloseCameraDetails = () => {
-    selectedCameraIdRef.current = null;
-    setSelectedCamera(null);
-    updateCameraCoverageLayers();
-  };
+    },
+    [restoreCustomMapLayers, updateCameraCoverageLayers],
+  );
 
   const handleFindLookingAt = async () => {
     if (!contextMenu) {
@@ -442,6 +631,9 @@ export function CameraMap() {
 
     setContextMenu(null);
     setSelectedCamera(null);
+    setSelectedIntersection(null);
+    selectedCameraIdRef.current = null;
+    updateCameraCoverageLayers();
 
     lookingAtAbortControllerRef.current?.abort();
 
@@ -502,7 +694,7 @@ export function CameraMap() {
     }
 
     let isActive = true;
-    let camerasAbortController: AbortController | null = null;
+    let bboxAbortController: AbortController | null = null;
 
     const pageAbortController = new AbortController();
 
@@ -521,41 +713,11 @@ export function CameraMap() {
 
     map.addControl(new maplibregl.NavigationControl(), 'bottom-left');
 
-    function clearCameraMarkers() {
-      cameraMarkersRef.current.forEach((marker) => marker.remove());
-      cameraMarkersRef.current = [];
-    }
-
-    function renderCameraMarkers(cameras: Camera[]) {
-      clearCameraMarkers();
-
-      const markers = cameras.map((camera) => {
-        const element = createCameraMarkerElement(camera);
-
-        const button = element.querySelector<HTMLButtonElement>(
-          '.camera-marker__button',
-        );
-
-        button?.addEventListener('click', () => {
-          selectCamera(camera);
-        });
-
-        return new maplibregl.Marker({
-          element,
-          anchor: 'center',
-        })
-          .setLngLat([camera.longitude, camera.latitude])
-          .addTo(map);
-      });
-
-      cameraMarkersRef.current = markers;
-    }
-
-    async function loadCamerasByCurrentBbox() {
-      camerasAbortController?.abort();
+    async function loadMapObjectsByCurrentBbox() {
+      bboxAbortController?.abort();
 
       const currentAbortController = new AbortController();
-      camerasAbortController = currentAbortController;
+      bboxAbortController = currentAbortController;
 
       try {
         setIsCamerasLoading(true);
@@ -563,23 +725,36 @@ export function CameraMap() {
 
         const bbox = getMapBbox(map);
 
-        const cameras = await getCamerasByBbox(
-          {
-            minLng: bbox.minLng,
-            minLat: bbox.minLat,
-            maxLng: bbox.maxLng,
-            maxLat: bbox.maxLat,
-          },
-          currentAbortController.signal,
-        );
+        const [cameras, intersections] = await Promise.all([
+          getCamerasByBbox(
+            {
+              minLng: bbox.minLng,
+              minLat: bbox.minLat,
+              maxLng: bbox.maxLng,
+              maxLat: bbox.maxLat,
+            },
+            currentAbortController.signal,
+          ),
+          getIntersectionsByBbox(
+            {
+              minLng: bbox.minLng,
+              minLat: bbox.minLat,
+              maxLng: bbox.maxLng,
+              maxLat: bbox.maxLat,
+            },
+            currentAbortController.signal,
+          ),
+        ]);
 
         if (!isActive || currentAbortController.signal.aborted) {
           return;
         }
 
         visibleCamerasRef.current = cameras;
+        visibleIntersectionsRef.current = intersections;
 
         renderCameraMarkers(cameras);
+        renderIntersectionMarkers(intersections);
         updateCameraCoverageLayers();
       } catch (error) {
         if (!isActive || currentAbortController.signal.aborted) {
@@ -589,7 +764,7 @@ export function CameraMap() {
         const message =
           error instanceof Error
             ? error.message
-            : 'Не удалось загрузить камеры';
+            : 'Не удалось загрузить объекты карты';
 
         setCamerasError(message);
       } finally {
@@ -707,52 +882,87 @@ export function CameraMap() {
         });
       }
 
-      await loadCamerasByCurrentBbox();
+      await loadMapObjectsByCurrentBbox();
     });
 
-    map.on('moveend', loadCamerasByCurrentBbox);
+    map.on('moveend', loadMapObjectsByCurrentBbox);
 
     return () => {
       isActive = false;
 
       pageAbortController.abort();
-      camerasAbortController?.abort();
+      bboxAbortController?.abort();
       detailsAbortControllerRef.current?.abort();
       lookingAtAbortControllerRef.current?.abort();
-
-      map.off('moveend', loadCamerasByCurrentBbox);
-      map.off('contextmenu', handleMapContextMenu);
-      map.off('click', handleMapClick);
+      intersectionAbortControllerRef.current?.abort();
 
       window.removeEventListener(MAP_EVENTS.findMe, handleFindMe);
       window.removeEventListener('okogid-theme-change', handleThemeChange);
       window.removeEventListener('keydown', handleEscape);
 
-      userLocationMarkerRef.current?.remove();
-      userLocationMarkerRef.current = null;
+      map.off('contextmenu', handleMapContextMenu);
+      map.off('click', handleMapClick);
+      map.off('moveend', loadMapObjectsByCurrentBbox);
 
       clearCameraMarkers();
+      clearIntersectionMarkers();
+
+      userLocationMarkerRef.current?.remove();
+      userLocationMarkerRef.current = null;
 
       map.remove();
       mapRef.current = null;
     };
-  }, [selectCamera]);
+  }, [
+    clearCameraMarkers,
+    clearIntersectionMarkers,
+    renderCameraMarkers,
+    renderIntersectionMarkers,
+    restoreCustomMapLayers,
+    updateCameraCoverageLayers,
+  ]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
-      <div ref={mapContainerRef} className="h-full w-full" />
+    <div className="relative h-full min-h-[calc(100vh-72px)] w-full overflow-hidden bg-[var(--color-bg)]">
+      <div ref={mapContainerRef} className="h-full min-h-[calc(100vh-72px)] w-full" />
 
       {isCamerasLoading && (
-        <div className="pointer-events-none absolute bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-full border border-[var(--color-border)] bg-[var(--navbar-bg)] px-5 py-3 text-sm font-bold text-[var(--color-text-primary)] shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
-          Загружаем камеры...
+        <div className="absolute left-4 top-24 z-30 rounded-full border border-[var(--color-border)] bg-[var(--navbar-bg)] px-4 py-2 font-inter text-xs font-bold text-[var(--color-text-secondary)] shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
+          Загружаем объекты карты...
         </div>
       )}
 
       {camerasError && (
-        <div className="absolute bottom-6 left-1/2 z-20 w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-[24px] border border-red-500/20 bg-red-500/10 px-5 py-4 text-center font-inter text-sm font-semibold text-red-600 shadow-xl backdrop-blur-2xl">
+        <div className="absolute left-4 top-24 z-30 max-w-sm rounded-[22px] border border-red-500/20 bg-red-500/10 px-4 py-3 font-inter text-sm font-semibold text-red-600 shadow-xl backdrop-blur-2xl">
           {camerasError}
         </div>
       )}
+
+      <CameraDetailsPanel
+        camera={selectedCamera}
+        isLoading={isCameraDetailsLoading}
+        onClose={handleCloseCameraDetails}
+      />
+
+      <IntersectionDetailsCard
+        intersection={selectedIntersection}
+        isLoading={isIntersectionLoading}
+        error={intersectionError}
+        onClose={handleCloseIntersectionDetails}
+      />
+
+      <LookingAtCamerasPanel
+        isOpen={lookingAtPanel.isOpen}
+        target={lookingAtPanel.target}
+        cameras={lookingAtPanel.cameras}
+        isLoading={lookingAtPanel.isLoading}
+        error={lookingAtPanel.error}
+        onClose={() => setLookingAtPanel(INITIAL_LOOKING_AT_PANEL_STATE)}
+        onCameraClick={(camera) => {
+          setLookingAtPanel(INITIAL_LOOKING_AT_PANEL_STATE);
+          void selectCamera(camera);
+        }}
+      />
 
       {contextMenu && (
         <MapContextMenu
@@ -768,22 +978,6 @@ export function CameraMap() {
         viewMode={mapViewMode}
         onChange={handleMapBaseModeChange}
         onViewModeChange={applyMapViewMode}
-      />
-
-      <LookingAtCamerasPanel
-        isOpen={lookingAtPanel.isOpen}
-        target={lookingAtPanel.target}
-        cameras={lookingAtPanel.cameras}
-        isLoading={lookingAtPanel.isLoading}
-        error={lookingAtPanel.error}
-        onClose={() => setLookingAtPanel(INITIAL_LOOKING_AT_PANEL_STATE)}
-        onCameraClick={selectCamera}
-      />
-
-      <CameraDetailsPanel
-        camera={selectedCamera}
-        isLoading={isCameraDetailsLoading}
-        onClose={handleCloseCameraDetails}
       />
     </div>
   );
