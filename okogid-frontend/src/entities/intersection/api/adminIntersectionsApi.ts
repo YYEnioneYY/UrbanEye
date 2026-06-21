@@ -58,6 +58,18 @@ export type DeleteAdminIntersectionResponse = {
   deleted: boolean;
 };
 
+export type UpdateAdminIntersectionPayload = {
+  title: string;
+  slug: string;
+  description: string;
+  city: string;
+  address: string;
+  category: string;
+  status: string;
+  latitude: number;
+  longitude: number;
+};
+
 function mapIntersectionFromApi(
   apiIntersection: ApiAdminIntersection,
 ): Intersection {
@@ -231,4 +243,35 @@ export async function deleteAdminIntersection(
   }
 
   return (await response.json()) as DeleteAdminIntersectionResponse;
+}
+
+export async function updateAdminIntersection(
+  intersectionId: string,
+  payload: UpdateAdminIntersectionPayload,
+  signal?: AbortSignal,
+): Promise<Intersection> {
+  const response = await authFetch(
+    createApiUrl(
+      API_CONFIG.apiBaseUrl,
+      `/admin/intersections/${intersectionId}`,
+    ),
+    {
+      method: 'PATCH',
+      signal,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    const message = await getApiErrorMessage(response);
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as ApiAdminIntersection;
+
+  return mapIntersectionFromApi(data);
 }

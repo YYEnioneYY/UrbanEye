@@ -8,6 +8,7 @@ import {
   getAdminIntersectionCameras,
   getAdminIntersections,
 } from '../../../entities/intersection/api/adminIntersectionsApi';
+import { AdminIntersectionEditModal } from './AdminIntersectionEditModal';
 
 function isAbortError(error: unknown) {
   if (error instanceof DOMException && error.name === 'AbortError') {
@@ -123,6 +124,9 @@ export function AdminIntersectionsPage() {
   
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  const [selectedIntersectionForEdit, setSelectedIntersectionForEdit] =
+    useState<Intersection | null>(null);
 
   const totalCameras = useMemo(() => {
     return intersections.reduce(
@@ -492,6 +496,14 @@ export function AdminIntersectionsPage() {
 
                           <button
                             type="button"
+                            onClick={() => setSelectedIntersectionForEdit(intersection)}
+                            className="h-10 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-4 font-inter text-xs font-bold text-[var(--color-text-primary)] transition hover:text-[var(--color-primary)]"
+                          >
+                            Изменить
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => void handleDeleteIntersection(intersection)}
                             disabled={deletingIntersectionId === intersection.id}
                             className="h-10 rounded-[16px] border border-red-500/20 bg-red-500/10 px-4 font-inter text-xs font-extrabold text-red-600 transition hover:bg-red-500 hover:text-white disabled:cursor-wait disabled:opacity-60"
@@ -519,6 +531,29 @@ export function AdminIntersectionsPage() {
           setCamerasError(null);
         }}
       />
+
+      {selectedIntersectionForEdit && (
+          <AdminIntersectionEditModal
+            intersection={selectedIntersectionForEdit}
+            onClose={() => setSelectedIntersectionForEdit(null)}
+            onUpdated={(updatedIntersection) => {
+              setIntersections((prev) =>
+                prev.map((intersection) =>
+                  intersection.id === updatedIntersection.id
+                    ? updatedIntersection
+                    : intersection,
+                ),
+              );
+          
+              if (selectedIntersection?.id === updatedIntersection.id) {
+                setSelectedIntersection(updatedIntersection);
+              }
+          
+              setActionError(null);
+              setActionSuccess(`Перекрёсток "${updatedIntersection.title}" обновлён`);
+            }}
+          />
+        )}
     </section>
   );
 }
