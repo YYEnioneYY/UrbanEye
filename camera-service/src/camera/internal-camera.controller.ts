@@ -73,4 +73,9 @@ export class InternalCameraController {
   ) {
     return this.cameraService.updateInternalPreview(cameraId, dto.previewUrl);
   }
+
+  @Get('event-sources')
+  getEventSources(@Query('limit') limit?: string) {
+    return this.cameraService.getEventSources(Number(limit ?? 100));
+  }
 }

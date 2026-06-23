@@ -76,6 +76,8 @@ model CameraConnection {
   encryptedUsername String?  @map("encrypted_username")
   encryptedPassword String?  @map("encrypted_password")
 
+  encryptedEventWsUrl String? @map("encrypted_event_ws_url")
+
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 

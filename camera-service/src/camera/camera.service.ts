@@ -1291,4 +1291,68 @@ export class CameraService {
       previewUrl: camera.preview_url,
     };
   }
+
+  async updateCameraEventWs(cameraId: string, eventWsUrl?: string | null) {
+    const encryptedEventWsUrl = eventWsUrl
+      ? this.encryptionService.encrypt(eventWsUrl)
+      : null;
+
+    const rows = await this.prisma.$queryRaw<
+      {
+        camera_id: string;
+        encrypted_event_ws_url: string | null;
+      }[]
+    >`
+      UPDATE camera_connections
+      SET encrypted_event_ws_url = ${encryptedEventWsUrl},
+          updated_at = NOW()
+      WHERE camera_id = ${cameraId}::uuid
+      RETURNING camera_id::text, encrypted_event_ws_url;
+    `;
+
+    const row = rows[0];
+
+    if (!row) {
+      throw new NotFoundException('Camera connection not found');
+    }
+
+    return {
+      cameraId: row.camera_id,
+      eventWsEnabled: row.encrypted_event_ws_url !== null,
+    };
+  }
+
+  async getEventSources(limit: number) {
+    const rows = await this.prisma.$queryRaw<
+      {
+        camera_id: string;
+        intersection_id: string | null;
+        title: string;
+        slug: string;
+        encrypted_event_ws_url: string;
+      }[]
+    >`
+      SELECT
+        c.id::text as camera_id,
+        c.intersection_id::text as intersection_id,
+        c.title,
+        c.slug,
+        cc.encrypted_event_ws_url
+      FROM cameras c
+      INNER JOIN camera_connections cc
+        ON cc.camera_id = c.id
+      WHERE c.deleted_at IS NULL
+        AND cc.encrypted_event_ws_url IS NOT NULL
+      ORDER BY c.created_at DESC
+      LIMIT ${limit};
+    `;
+    
+    return rows.map((row) => ({
+      cameraId: row.camera_id,
+      intersectionId: row.intersection_id,
+      title: row.title,
+      slug: row.slug,
+      eventWsUrl: this.encryptionService.decrypt(row.encrypted_event_ws_url),
+    }));
+  }
 }   

@@ -9,6 +9,7 @@ import { FindCamerasLookingAtPointDto } from './dto/find-cameras-looking-at-poin
 import { FindCameraByIdDto } from './dto/find-camera-by-id.dto';
 import { DeleteCameraDto } from './dto/delete-camera.dto';
 import { UpdateCameraPayloadDto } from './dto/update-camera.dto';
+import { UpdateCameraEventWsDto } from './dto/update-camera-event-ws.dto';
 
 @Controller()
 export class CameraController {
@@ -52,5 +53,19 @@ export class CameraController {
   @MessagePattern('camera.public.cameras.find_by_id')
   findById(@Payload() dto: FindCameraByIdDto) {
     return this.cameraService.findById(dto.cameraId);
+  }
+
+  @MessagePattern('camera.admin.cameras.update_event_ws')
+  updateCameraEventWs(
+    @Payload()
+    payload: {
+      cameraId: string;
+      dto: UpdateCameraEventWsDto;
+    },
+  ) {
+    return this.cameraService.updateCameraEventWs(
+      payload.cameraId,
+      payload.dto.eventWsUrl,
+    );
   }
 }
