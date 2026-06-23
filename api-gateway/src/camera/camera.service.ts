@@ -8,6 +8,7 @@ import { PublicCameraListResponseDto } from './dto/public-camera-list-response.d
 import { PublicCameraQueryDto } from './dto/public-camera-query.dto';
 import { CamerasLookingAtPointQueryDto } from './dto/cameras-looking-at-point-query.dto';
 import { UpdateCameraDto } from './dto/update-camera.dto';
+import { UpdateCameraEventWsDto } from './dto/update-camera-event-ws.dto';
 
 @Injectable()
 export class CameraService {
@@ -86,5 +87,15 @@ export class CameraService {
     return this.kafkaClientService.send('camera.admin.cameras.delete', {
       cameraId,
     });
+  }
+
+  updateCameraEventWs(cameraId: string, dto: UpdateCameraEventWsDto) {
+    return this.kafkaClientService.send(
+      'camera.admin.cameras.update_event_ws',
+      {
+        cameraId,
+        dto,
+      },
+    );
   }
 }

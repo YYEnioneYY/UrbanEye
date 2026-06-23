@@ -26,6 +26,7 @@ import { PublicCameraListResponseDto } from './dto/public-camera-list-response.d
 import { PublicCameraQueryDto } from './dto/public-camera-query.dto';
 import { CamerasLookingAtPointQueryDto } from './dto/cameras-looking-at-point-query.dto';
 import { UpdateCameraDto } from './dto/update-camera.dto';
+import { UpdateCameraEventWsDto } from './dto/update-camera-event-ws.dto';
 
 @ApiTags('Cameras')
 @Controller()
@@ -109,5 +110,18 @@ export class CameraController {
     cameraId: string,
   ) {
     return this.cameraService.delete(cameraId);
+  }
+
+  @Patch('admin/cameras/:cameraId/event-ws')
+  @Auth('admin')
+  @ApiOperation({
+    summary: 'Добавить или отключить WebSocket-ссылку событий камеры',
+  })
+  updateCameraEventWs(
+    @Param('cameraId', new ParseUUIDPipe({ version: '4' }))
+    cameraId: string,
+    @Body() dto: UpdateCameraEventWsDto,
+  ) {
+    return this.cameraService.updateCameraEventWs(cameraId, dto);
   }
 }
