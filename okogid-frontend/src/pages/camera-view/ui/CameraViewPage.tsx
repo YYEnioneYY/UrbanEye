@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
+import { io, type Socket } from 'socket.io-client';
 
 import type { Camera } from '../../../entities/camera/model/types';
 import type { CameraStream } from '../../../entities/stream/model/types';
@@ -13,22 +14,23 @@ type CameraEventsConnectionStatus =
   | 'closed'
   | 'error';
 
-type CameraEventItem = {
+type CameraEvent = {
   id: string;
-  cameraId?: string;
   type: string;
+  cameraId: string;
+  intersectionId: string | null;
   title: string;
-  description: string;
-  payload: unknown;
-  receivedAt: string;
-  timestamp?: string;
-  severity?: string;
-  raw: string;
+  description: string | null;
+  imageUrl: string | null;
+  confidence: number | null;
+  metadata: Record<string, unknown>;
+  occurredAt: string;
+  createdAt: string;
 };
 
-const CAMERA_EVENTS_WS_URL = import.meta.env.VITE_CAMERA_EVENTS_WS_URL as
-  | string
-  | undefined;
+const CAMERA_EVENTS_URL =
+  (import.meta.env.VITE_CAMERA_EVENTS_URL as string | undefined) ??
+  'http://localhost:3010/camera-events';
 
 function getStatusLabel(status: Camera['status']) {
   if (status === 'online') return 'Онлайн';
@@ -66,7 +68,7 @@ function getCategoryLabel(category: string) {
   return categories[category] ?? category;
 }
 
-function formatDate(value?: string) {
+function formatDate(value?: string | null) {
   if (!value) return '—';
 
   return new Intl.DateTimeFormat('ru-RU', {
@@ -78,7 +80,7 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-function formatTime(value?: string) {
+function formatTime(value?: string | null) {
   if (!value) return '—';
 
   return new Intl.DateTimeFormat('ru-RU', {
@@ -98,167 +100,19 @@ function formatMeters(value?: number) {
   return `${(value / 1000).toFixed(1)} км`;
 }
 
-function getJsonString(value: unknown) {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function getStringFromUnknown(value: unknown) {
-  return typeof value === 'string' ? value : undefined;
-}
-
-function getNestedString(
-  value: unknown,
-  path: string[],
-): string | undefined {
-  let current: unknown = value;
-
-  for (const key of path) {
-    if (!current || typeof current !== 'object') {
-      return undefined;
-    }
-
-    current = (current as Record<string, unknown>)[key];
-  }
-
-  return getStringFromUnknown(current);
-}
-
-function parseIncomingEventMessage(data: string) {
-  try {
-    return JSON.parse(data) as unknown;
-  } catch {
-    return data;
-  }
-}
-
-function getEventCameraId(payload: unknown) {
-  return (
-    getNestedString(payload, ['cameraId']) ??
-    getNestedString(payload, ['camera_id']) ??
-    getNestedString(payload, ['camera', 'id']) ??
-    getNestedString(payload, ['payload', 'cameraId']) ??
-    getNestedString(payload, ['payload', 'camera_id']) ??
-    getNestedString(payload, ['data', 'cameraId']) ??
-    getNestedString(payload, ['data', 'camera_id'])
-  );
-}
-
-function normalizeCameraEvent(rawData: string, cameraId: string) {
-  const parsed = parseIncomingEventMessage(rawData);
-  const eventCameraId = getEventCameraId(parsed);
-
-  if (eventCameraId && eventCameraId !== cameraId) {
-    return null;
-  }
-
-  if (!parsed || typeof parsed !== 'object') {
-    const rawText = String(parsed);
-
-    return {
-      id: `${Date.now()}-${Math.random()}`,
-      cameraId,
-      type: 'message',
-      title: 'Событие камеры',
-      description: rawText,
-      payload: parsed,
-      receivedAt: new Date().toISOString(),
-      raw: rawData,
-    } satisfies CameraEventItem;
-  }
-
-  const object = parsed as Record<string, unknown>;
-
-  const type =
-    getStringFromUnknown(object.type) ??
-    getStringFromUnknown(object.eventType) ??
-    getStringFromUnknown(object.event) ??
-    getStringFromUnknown(object.name) ??
-    'event';
-
-  const title =
-    getStringFromUnknown(object.title) ??
-    getStringFromUnknown(object.message) ??
-    getStringFromUnknown(object.label) ??
-    getEventTypeLabel(type);
-
-  const description =
-    getStringFromUnknown(object.description) ??
-    getStringFromUnknown(object.message) ??
-    getStringFromUnknown(object.text) ??
-    'Получено новое событие от камеры';
-
-  const timestamp =
-    getStringFromUnknown(object.timestamp) ??
-    getStringFromUnknown(object.createdAt) ??
-    getStringFromUnknown(object.time);
-
-  const severity =
-    getStringFromUnknown(object.severity) ??
-    getStringFromUnknown(object.level);
-
-  return {
-    id:
-      getStringFromUnknown(object.id) ??
-      `${Date.now()}-${Math.random()}`,
-    cameraId: eventCameraId ?? cameraId,
-    type,
-    title,
-    description,
-    payload: parsed,
-    receivedAt: new Date().toISOString(),
-    timestamp,
-    severity,
-    raw: rawData,
-  } satisfies CameraEventItem;
-}
-
 function getEventTypeLabel(type: string) {
-  const normalizedType = type.toLowerCase();
-
   const labels: Record<string, string> = {
+    event: 'Событие',
     motion: 'Движение',
     person: 'Человек',
     vehicle: 'Транспорт',
     car: 'Автомобиль',
     object: 'Объект',
-    message: 'Сообщение',
-    event: 'Событие',
     alarm: 'Тревога',
+    message: 'Сообщение',
   };
 
-  return labels[normalizedType] ?? type;
-}
-
-function createCameraEventsWsUrl(baseUrl: string | undefined, cameraId: string) {
-  if (!baseUrl?.trim()) {
-    return null;
-  }
-
-  let normalizedUrl = baseUrl.trim();
-
-  if (normalizedUrl.startsWith('http://')) {
-    normalizedUrl = `ws://${normalizedUrl.slice('http://'.length)}`;
-  }
-
-  if (normalizedUrl.startsWith('https://')) {
-    normalizedUrl = `wss://${normalizedUrl.slice('https://'.length)}`;
-  }
-
-  try {
-    const url = new URL(normalizedUrl);
-
-    url.searchParams.set('cameraId', cameraId);
-
-    return url.toString();
-  } catch {
-    const separator = normalizedUrl.includes('?') ? '&' : '?';
-
-    return `${normalizedUrl}${separator}cameraId=${encodeURIComponent(cameraId)}`;
-  }
+  return labels[type.toLowerCase()] ?? type;
 }
 
 function getConnectionStatusLabel(status: CameraEventsConnectionStatus) {
@@ -284,6 +138,30 @@ function getConnectionStatusClassName(status: CameraEventsConnectionStatus) {
   }
 
   return 'bg-zinc-500/10 text-zinc-500 ring-zinc-500/20';
+}
+
+function getConfidenceLabel(confidence: number | null) {
+  if (typeof confidence !== 'number') {
+    return null;
+  }
+
+  if (confidence <= 1) {
+    return `${Math.round(confidence * 100)}%`;
+  }
+
+  return `${Math.round(confidence)}%`;
+}
+
+function getMetadataEntries(metadata: Record<string, unknown>) {
+  return Object.entries(metadata).filter(([, value]) => value !== undefined);
+}
+
+function getJsonString(value: unknown) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }
 
 function MapPinIcon() {
@@ -362,19 +240,20 @@ function EyeIcon() {
   );
 }
 
-function BoltIcon() {
+function EventPulseIcon() {
   return (
     <svg
-      className="h-5 w-5"
+      className="h-6 w-6"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2.2"
+      strokeWidth="2.3"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M13 2 4 14h7l-1 8 10-13h-7l0-7Z" />
+      <path d="M4 12h3l2-6 4 12 2-6h5" />
+      <circle cx="12" cy="12" r="9" />
     </svg>
   );
 }
@@ -423,151 +302,183 @@ function CameraEventsPanel({ cameraId }: { cameraId: string }) {
   const [connectionStatus, setConnectionStatus] =
     useState<CameraEventsConnectionStatus>('idle');
 
-  const [events, setEvents] = useState<CameraEventItem[]>([]);
+  const [events, setEvents] = useState<CameraEvent[]>([]);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [reconnectKey, setReconnectKey] = useState(0);
 
-  const wsUrl = useMemo(() => {
-    return createCameraEventsWsUrl(CAMERA_EVENTS_WS_URL, cameraId);
-  }, [cameraId]);
+  const latestEvent = events[0] ?? null;
+
+  const eventsTodayCount = useMemo(() => {
+    const today = new Date().toDateString();
+
+    return events.filter((event) => {
+      return new Date(event.occurredAt).toDateString() === today;
+    }).length;
+  }, [events]);
 
   useEffect(() => {
-    if (!wsUrl) {
-      setConnectionStatus('error');
-      setConnectionError(
-        'VITE_CAMERA_EVENTS_WS_URL не указан в .env файле',
-      );
+    if (!cameraId) {
       return;
     }
 
-    let socket: WebSocket | null = null;
-    let isClosedByEffect = false;
+    setConnectionStatus('connecting');
+    setConnectionError(null);
 
-    try {
-      setConnectionStatus('connecting');
+    const socket: Socket = io(CAMERA_EVENTS_URL, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+
+    socket.on('connect', () => {
+      setConnectionStatus('open');
       setConnectionError(null);
 
-      socket = new WebSocket(wsUrl);
-
-      socket.addEventListener('open', () => {
-        if (isClosedByEffect) return;
-
-        setConnectionStatus('open');
-        setConnectionError(null);
+      socket.emit('subscribe.camera', {
+        cameraId,
       });
+    });
 
-      socket.addEventListener('message', (event) => {
-        if (isClosedByEffect || typeof event.data !== 'string') {
-          return;
-        }
+    socket.on('camera.event', (event: CameraEvent) => {
+      if (event.cameraId !== cameraId) {
+        return;
+      }
 
-        const normalizedEvent = normalizeCameraEvent(event.data, cameraId);
+      setEvents((prev) => [event, ...prev].slice(0, 50));
+    });
 
-        if (!normalizedEvent) {
-          return;
-        }
-
-        setEvents((prev) => [normalizedEvent, ...prev].slice(0, 40));
-      });
-
-      socket.addEventListener('close', () => {
-        if (isClosedByEffect) return;
-
-        setConnectionStatus('closed');
-      });
-
-      socket.addEventListener('error', () => {
-        if (isClosedByEffect) return;
-
-        setConnectionStatus('error');
-        setConnectionError('Не удалось подключиться к WebSocket событий');
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Ошибка создания WebSocket подключения';
-
+    socket.on('connect_error', (error) => {
       setConnectionStatus('error');
-      setConnectionError(message);
-    }
+      setConnectionError(error.message);
+
+      console.error(
+        'Не удалось подключиться к WebSocket событий:',
+        error.message,
+      );
+    });
+
+    socket.on('disconnect', () => {
+      setConnectionStatus('closed');
+    });
 
     return () => {
-      isClosedByEffect = true;
+      socket.emit('unsubscribe.camera', {
+        cameraId,
+      });
 
-      if (socket) {
-        socket.close();
-      }
+      socket.disconnect();
     };
-  }, [cameraId, wsUrl, reconnectKey]);
+  }, [cameraId, reconnectKey]);
 
   return (
-    <div className="rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
-      <div className="border-b border-[var(--color-border)] p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-inter text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-              Camera Events
+    <div className="overflow-hidden rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
+      <div className="relative overflow-hidden border-b border-[var(--color-border)] bg-[var(--color-bg-soft)] p-5">
+        <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[var(--color-primary)]/20 blur-3xl" />
+        <div className="absolute -bottom-20 left-8 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl" />
+
+        <div className="relative">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-inter text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+                Camera Events
+              </p>
+
+              <h2 className="mt-1 text-xl font-extrabold text-[var(--color-text-primary)]">
+                События камеры
+              </h2>
+            </div>
+
+            <span
+              className={[
+                'shrink-0 rounded-full px-3 py-1 font-inter text-xs font-bold ring-1',
+                getConnectionStatusClassName(connectionStatus),
+              ].join(' ')}
+            >
+              {getConnectionStatusLabel(connectionStatus)}
+            </span>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-[22px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+              <p className="font-inter text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+                Всего событий
+              </p>
+
+              <p className="mt-1 text-3xl font-black text-[var(--color-text-primary)]">
+                {events.length}
+              </p>
+            </div>
+
+            <div className="rounded-[22px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+              <p className="font-inter text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+                Сегодня
+              </p>
+
+              <p className="mt-1 text-3xl font-black text-[var(--color-text-primary)]">
+                {eventsTodayCount}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-[22px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+            <p className="font-inter text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+              Последнее событие
             </p>
 
-            <h2 className="mt-1 text-xl font-extrabold text-[var(--color-text-primary)]">
-              События камеры
-            </h2>
+            <p className="mt-1 font-inter text-sm font-extrabold text-[var(--color-text-primary)]">
+              {latestEvent ? latestEvent.title : 'Пока нет событий'}
+            </p>
+
+            <p className="mt-1 font-inter text-xs text-[var(--color-text-secondary)]">
+              {latestEvent ? formatDate(latestEvent.occurredAt) : '—'}
+            </p>
           </div>
 
-          <span
-            className={[
-              'shrink-0 rounded-full px-3 py-1 font-inter text-xs font-bold ring-1',
-              getConnectionStatusClassName(connectionStatus),
-            ].join(' ')}
-          >
-            {getConnectionStatusLabel(connectionStatus)}
-          </span>
-        </div>
+          <div className="mt-3 rounded-[20px] bg-[var(--color-surface)] p-4">
+            <p className="font-inter text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+              Socket.IO endpoint
+            </p>
 
-        <div className="mt-4 rounded-[20px] bg-[var(--color-bg-soft)] p-4">
-          <p className="font-inter text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
-            Endpoint
-          </p>
-
-          <p
-            title={wsUrl ?? CAMERA_EVENTS_WS_URL ?? ''}
-            className="mt-1 line-clamp-2 break-all font-inter text-xs font-semibold leading-5 text-[var(--color-text-secondary)]"
-          >
-            {wsUrl ?? 'Не указан'}
-          </p>
-        </div>
-
-        {connectionError && (
-          <div className="mt-4 rounded-[20px] border border-red-500/20 bg-red-500/10 px-4 py-3 font-inter text-xs font-semibold leading-5 text-red-600">
-            {connectionError}
+            <p
+              title={CAMERA_EVENTS_URL}
+              className="mt-1 line-clamp-2 break-all font-inter text-xs font-semibold leading-5 text-[var(--color-text-secondary)]"
+            >
+              {CAMERA_EVENTS_URL}
+            </p>
           </div>
-        )}
 
-        <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setReconnectKey((prev) => prev + 1)}
-            className="h-10 flex-1 rounded-[16px] bg-[var(--color-primary)] px-4 font-inter text-xs font-extrabold text-[var(--color-secondary-text)] transition hover:scale-[1.01]"
-          >
-            Переподключиться
-          </button>
+          {connectionError && (
+            <div className="mt-4 rounded-[20px] border border-red-500/20 bg-red-500/10 px-4 py-3 font-inter text-xs font-semibold leading-5 text-red-600">
+              {connectionError}
+            </div>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setEvents([])}
-            className="h-10 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-4 font-inter text-xs font-bold text-[var(--color-text-primary)] transition hover:text-red-500"
-          >
-            Очистить
-          </button>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setReconnectKey((prev) => prev + 1)}
+              className="h-10 flex-1 rounded-[16px] bg-[var(--color-primary)] px-4 font-inter text-xs font-extrabold text-[var(--color-secondary-text)] transition hover:scale-[1.01]"
+            >
+              Переподключиться
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEvents([])}
+              className="h-10 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 font-inter text-xs font-bold text-[var(--color-text-primary)] transition hover:text-red-500"
+            >
+              Очистить
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="max-h-[560px] min-h-[360px] overflow-y-auto p-5">
+      <div className="max-h-[620px] min-h-[380px] overflow-y-auto p-5">
         {events.length === 0 ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-[26px] border border-dashed border-[var(--color-border)] bg-[var(--color-bg-soft)] px-6 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-primary)]/15 text-[var(--color-primary)]">
-              <BoltIcon />
+          <div className="flex min-h-[330px] flex-col items-center justify-center rounded-[26px] border border-dashed border-[var(--color-border)] bg-[var(--color-bg-soft)] px-6 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-primary)]/15 text-[var(--color-primary)]">
+              <EventPulseIcon />
             </div>
 
             <h3 className="mt-4 text-lg font-extrabold text-[var(--color-text-primary)]">
@@ -575,8 +486,8 @@ function CameraEventsPanel({ cameraId }: { cameraId: string }) {
             </h3>
 
             <p className="mt-2 font-inter text-sm leading-6 text-[var(--color-text-secondary)]">
-              Когда camera-events-service отправит данные по WebSocket, они
-              появятся здесь.
+              После подключения клиент отправляет subscribe.camera. Когда
+              backend пришлёт camera.event, событие появится здесь.
             </p>
           </div>
         ) : (
@@ -591,47 +502,124 @@ function CameraEventsPanel({ cameraId }: { cameraId: string }) {
   );
 }
 
-function CameraEventCard({ event }: { event: CameraEventItem }) {
-  return (
-    <article className="rounded-[24px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[var(--color-primary)]/15 px-3 py-1 font-inter text-[10px] font-extrabold uppercase tracking-wide text-[var(--color-primary)]">
-              {getEventTypeLabel(event.type)}
-            </span>
+function CameraEventCard({ event }: { event: CameraEvent }) {
+  const confidenceLabel = getConfidenceLabel(event.confidence);
+  const metadataEntries = getMetadataEntries(event.metadata);
 
-            {event.severity && (
-              <span className="rounded-full bg-red-500/10 px-3 py-1 font-inter text-[10px] font-extrabold uppercase tracking-wide text-red-600">
-                {event.severity}
+  return (
+    <article className="overflow-hidden rounded-[26px] border border-[var(--color-border)] bg-[var(--color-bg-soft)]">
+      {event.imageUrl && (
+        <div className="h-44 overflow-hidden bg-[#0F1318]">
+          <img
+            src={event.imageUrl}
+            alt={event.title}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        </div>
+      )}
+
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-[var(--color-primary)]/15 px-3 py-1 font-inter text-[10px] font-extrabold uppercase tracking-wide text-[var(--color-primary)]">
+                {getEventTypeLabel(event.type)}
               </span>
-            )}
+
+              {confidenceLabel && (
+                <span className="rounded-full bg-blue-500/10 px-3 py-1 font-inter text-[10px] font-extrabold uppercase tracking-wide text-blue-600">
+                  Confidence {confidenceLabel}
+                </span>
+              )}
+            </div>
+
+            <h3 className="mt-3 line-clamp-2 text-base font-extrabold text-[var(--color-text-primary)]">
+              {event.title}
+            </h3>
+
+            <p className="mt-2 font-inter text-sm leading-6 text-[var(--color-text-secondary)]">
+              {event.description ?? 'Описание события не передано'}
+            </p>
           </div>
 
-          <h3 className="mt-3 line-clamp-2 text-base font-extrabold text-[var(--color-text-primary)]">
-            {event.title}
-          </h3>
+          <div className="shrink-0 rounded-2xl bg-[var(--color-surface)] px-3 py-2 text-right">
+            <p className="font-inter text-[10px] font-bold uppercase text-[var(--color-text-muted)]">
+              Время
+            </p>
 
-          <p className="mt-2 line-clamp-3 font-inter text-sm leading-6 text-[var(--color-text-secondary)]">
-            {event.description}
-          </p>
+            <p className="mt-1 font-inter text-xs font-extrabold text-[var(--color-text-primary)]">
+              {formatTime(event.occurredAt)}
+            </p>
+          </div>
         </div>
 
-        <p className="shrink-0 font-inter text-xs font-bold text-[var(--color-text-muted)]">
-          {formatTime(event.timestamp ?? event.receivedAt)}
-        </p>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <EventField label="ID события" value={event.id} />
+          <EventField label="Создано" value={formatDate(event.createdAt)} />
+        </div>
+
+        {event.intersectionId && (
+          <div className="mt-2">
+            <EventField label="Intersection ID" value={event.intersectionId} />
+          </div>
+        )}
+
+        {metadataEntries.length > 0 && (
+          <div className="mt-4 rounded-[20px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+            <p className="font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+              Metadata
+            </p>
+
+            <div className="mt-3 space-y-2">
+              {metadataEntries.map(([key, value]) => (
+                <div
+                  key={key}
+                  className="flex items-start justify-between gap-3 font-inter text-xs"
+                >
+                  <span className="font-bold text-[var(--color-text-muted)]">
+                    {key}
+                  </span>
+
+                  <span className="max-w-[220px] break-words text-right font-semibold text-[var(--color-text-primary)]">
+                    {typeof value === 'object'
+                      ? getJsonString(value)
+                      : String(value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <details className="mt-4">
+          <summary className="cursor-pointer font-inter text-xs font-bold text-[var(--color-primary)]">
+            Полный JSON события
+          </summary>
+
+          <pre className="mt-3 max-h-60 overflow-auto rounded-[18px] bg-[#0F1318] p-4 text-xs leading-5 text-white">
+            {getJsonString(event)}
+          </pre>
+        </details>
       </div>
-
-      <details className="mt-3">
-        <summary className="cursor-pointer font-inter text-xs font-bold text-[var(--color-primary)]">
-          JSON события
-        </summary>
-
-        <pre className="mt-3 max-h-60 overflow-auto rounded-[18px] bg-[#0F1318] p-4 text-xs leading-5 text-white">
-          {getJsonString(event.payload)}
-        </pre>
-      </details>
     </article>
+  );
+}
+
+function EventField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[16px] bg-[var(--color-surface)] px-3 py-2">
+      <p className="font-inter text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+        {label}
+      </p>
+
+      <p
+        title={value}
+        className="mt-1 line-clamp-2 break-all font-inter text-xs font-semibold text-[var(--color-text-secondary)]"
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -688,7 +676,7 @@ export function CameraViewPage() {
       }
     }
 
-    loadCameraStream();
+    void loadCameraStream();
 
     return () => {
       abortController.abort();
@@ -773,7 +761,7 @@ export function CameraViewPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_460px]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_500px]">
           <div className="space-y-5">
             <CameraPlayer stream={stream} title={camera.title} />
 
