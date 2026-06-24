@@ -20,7 +20,7 @@ const config: runtime.GetPrismaClientConfig = {
   "clientVersion": "7.8.0",
   "engineVersion": "3c6e192761c0362d496ed980de936e2f3cebcd3a",
   "activeProvider": "postgresql",
-  "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nmodel CameraEvent {\n  id String @id @default(uuid()) @db.Uuid\n\n  cameraId       String  @map(\"camera_id\") @db.Uuid\n  intersectionId String? @map(\"intersection_id\") @db.Uuid\n\n  eventType   String  @map(\"event_type\")\n  title       String\n  description String?\n\n  imageUrl   String? @map(\"image_url\")\n  confidence Float?\n\n  metadata   Json?\n  rawPayload Json? @map(\"raw_payload\")\n\n  occurredAt DateTime @map(\"occurred_at\")\n  createdAt  DateTime @default(now()) @map(\"created_at\")\n\n  @@index([cameraId])\n  @@index([intersectionId])\n  @@index([eventType])\n  @@index([occurredAt])\n  @@map(\"camera_events\")\n}\n",
+  "inlineSchema": "generator client {\n  provider     = \"prisma-client\"\n  output       = \"../src/generated/prisma\"\n  moduleFormat = \"cjs\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nmodel CameraEvent {\n  id String @id @default(uuid()) @db.Uuid\n\n  cameraId       String  @map(\"camera_id\") @db.Uuid\n  intersectionId String? @map(\"intersection_id\") @db.Uuid\n\n  eventType   String  @map(\"event_type\")\n  title       String\n  description String?\n\n  imageUrl   String? @map(\"image_url\")\n  confidence Float?\n\n  metadata   Json?\n  rawPayload Json? @map(\"raw_payload\")\n\n  occurredAt DateTime @map(\"occurred_at\")\n  createdAt  DateTime @default(now()) @map(\"created_at\")\n\n  @@index([cameraId])\n  @@index([intersectionId])\n  @@index([eventType])\n  @@index([occurredAt])\n  @@map(\"camera_events\")\n}\n",
   "runtimeDataModel": {
     "models": {},
     "enums": {},
@@ -45,10 +45,10 @@ async function decodeBase64AsWasm(wasmBase64: string): Promise<WebAssembly.Modul
 }
 
 config.compilerWasm = {
-  getRuntime: async () => await import("@prisma/client/runtime/query_compiler_fast_bg.postgresql.mjs"),
+  getRuntime: async () => await import("@prisma/client/runtime/query_compiler_fast_bg.postgresql.js"),
 
   getQueryCompilerWasmModule: async () => {
-    const { wasm } = await import("@prisma/client/runtime/query_compiler_fast_bg.postgresql.wasm-base64.mjs")
+    const { wasm } = await import("@prisma/client/runtime/query_compiler_fast_bg.postgresql.wasm-base64.js")
     return await decodeBase64AsWasm(wasm)
   },
 
