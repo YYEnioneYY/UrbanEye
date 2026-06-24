@@ -11,6 +11,10 @@ import type {
   AdminCamerasMeta,
 } from '../../../entities/camera/model/adminCameraTypes';
 
+import type { AdminCameraEventWsResponse } from '../../../entities/camera/api/adminCamerasApi';
+
+import { AdminCameraEventWsModal } from './AdminCameraEventWsModal';
+
 const DEFAULT_META: AdminCamerasMeta = {
   page: 1,
   limit: 20,
@@ -155,6 +159,13 @@ export function AdminCamerasPage() {
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [deletingCameraId, setDeletingCameraId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  const [selectedCameraForEventWs, setSelectedCameraForEventWs] =
+    useState<AdminCamera | null>(null);
+
+  const [cameraEventWsById, setCameraEventWsById] = useState<
+    Record<string, AdminCameraEventWsResponse>
+  >({});
 
   const camerasCountLabel = useMemo(() => {
     if (meta.total === 0) return 'Нет камер';
@@ -374,7 +385,7 @@ export function AdminCamerasPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1650px] border-collapse">
+            <table className="w-full min-w-[1850px] border-collapse">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-soft)] text-left">
                   <th className="px-5 py-4 font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
@@ -387,6 +398,10 @@ export function AdminCamerasPage() {
 
                   <th className="px-5 py-4 font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
                     Health
+                  </th>
+
+                  <th className="px-5 py-4 font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+                    Event WS
                   </th>
 
                   <th className="px-5 py-4 font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
@@ -538,6 +553,27 @@ export function AdminCamerasPage() {
                       </td>
 
                       <td className="px-5 py-4">
+                        {cameraEventWsById[camera.id]?.eventWsUrl ? (
+                          <div className="max-w-[260px] rounded-[16px] bg-blue-500/10 px-3 py-2">
+                            <p className="font-inter text-[10px] font-bold uppercase tracking-wide text-blue-600">
+                              Подключен
+                            </p>
+                        
+                            <p
+                              title={cameraEventWsById[camera.id].eventWsUrl}
+                              className="mt-1 line-clamp-2 break-all font-inter text-xs font-semibold leading-5 text-[var(--color-text-primary)]"
+                            >
+                              {cameraEventWsById[camera.id].eventWsUrl}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="font-inter text-xs font-semibold text-[var(--color-text-muted)]">
+                            Не добавлен
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-4">
                         <p className="font-inter text-sm font-bold text-[var(--color-text-primary)]">
                           {camera.city}
                         </p>
@@ -643,6 +679,14 @@ export function AdminCamerasPage() {
 
                           <button
                             type="button"
+                            onClick={() => setSelectedCameraForEventWs(camera)}
+                            className="h-10 rounded-[16px] border border-blue-500/20 bg-blue-500/10 px-4 font-inter text-xs font-extrabold text-blue-600 transition hover:bg-blue-500 hover:text-white"
+                          >
+                            Event WS
+                          </button>
+
+                          <button
+                            type="button"
                             disabled={Boolean(camera.deletedAt) || deletingCameraId === camera.id}
                             onClick={() => handleDeleteCamera(camera)}
                             className="h-10 rounded-[14px] border border-red-500/20 bg-red-500/10 px-4 font-inter text-xs font-bold text-red-600 transition hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-red-500/10 disabled:hover:text-red-600"
@@ -698,6 +742,22 @@ export function AdminCamerasPage() {
             setActionError(null);
             setActionSuccess('Камера успешно обновлена');
             setReloadKey((prev) => prev + 1);
+          }}
+        />
+      )}
+
+      {selectedCameraForEventWs && (
+        <AdminCameraEventWsModal
+          camera={selectedCameraForEventWs}
+          onClose={() => setSelectedCameraForEventWs(null)}
+          onSaved={(result) => {
+            setCameraEventWsById((prev) => ({
+              ...prev,
+              [result.cameraId]: result,
+            }));
+          
+            setActionError(null);
+            setActionSuccess(`Event WS добавлен для камеры "${result.title}"`);
           }}
         />
       )}

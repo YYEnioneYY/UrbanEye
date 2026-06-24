@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 
 import type { Camera } from '../../../entities/camera/model/types';
@@ -6,10 +6,37 @@ import type { CameraStream } from '../../../entities/stream/model/types';
 import { getCameraStreamByCameraId } from '../../../entities/stream/api/streamsApi';
 import { CameraPlayer } from '../../../features/camera-player/ui/CameraPlayer';
 
+type CameraEventsConnectionStatus =
+  | 'idle'
+  | 'connecting'
+  | 'open'
+  | 'closed'
+  | 'error';
+
+type CameraEventItem = {
+  id: string;
+  cameraId?: string;
+  type: string;
+  title: string;
+  description: string;
+  payload: unknown;
+  receivedAt: string;
+  timestamp?: string;
+  severity?: string;
+  raw: string;
+};
+
+const CAMERA_EVENTS_WS_URL = import.meta.env.VITE_CAMERA_EVENTS_WS_URL as
+  | string
+  | undefined;
+
 function getStatusLabel(status: Camera['status']) {
   if (status === 'online') return 'Онлайн';
   if (status === 'offline') return 'Офлайн';
-  return 'Обслуживание';
+  if (status === 'maintenance') return 'Обслуживание';
+  if (status === 'planned') return 'Запланирована';
+
+  return status;
 }
 
 function getStatusClassName(status: Camera['status']) {
@@ -21,7 +48,11 @@ function getStatusClassName(status: Camera['status']) {
     return 'bg-red-500/10 text-red-700 ring-red-500/20';
   }
 
-  return 'bg-yellow-500/10 text-yellow-700 ring-yellow-500/20';
+  if (status === 'maintenance') {
+    return 'bg-yellow-500/10 text-yellow-700 ring-yellow-500/20';
+  }
+
+  return 'bg-blue-500/10 text-blue-700 ring-blue-500/20';
 }
 
 function getCategoryLabel(category: string) {
@@ -29,6 +60,7 @@ function getCategoryLabel(category: string) {
     landmark: 'Достопримечательность',
     history: 'История',
     modern: 'Современное место',
+    traffic: 'Трафик',
   };
 
   return categories[category] ?? category;
@@ -46,6 +78,16 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
+function formatTime(value?: string) {
+  if (!value) return '—';
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(value));
+}
+
 function formatMeters(value?: number) {
   if (typeof value !== 'number') return '—';
 
@@ -54,6 +96,194 @@ function formatMeters(value?: number) {
   }
 
   return `${(value / 1000).toFixed(1)} км`;
+}
+
+function getJsonString(value: unknown) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function getStringFromUnknown(value: unknown) {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function getNestedString(
+  value: unknown,
+  path: string[],
+): string | undefined {
+  let current: unknown = value;
+
+  for (const key of path) {
+    if (!current || typeof current !== 'object') {
+      return undefined;
+    }
+
+    current = (current as Record<string, unknown>)[key];
+  }
+
+  return getStringFromUnknown(current);
+}
+
+function parseIncomingEventMessage(data: string) {
+  try {
+    return JSON.parse(data) as unknown;
+  } catch {
+    return data;
+  }
+}
+
+function getEventCameraId(payload: unknown) {
+  return (
+    getNestedString(payload, ['cameraId']) ??
+    getNestedString(payload, ['camera_id']) ??
+    getNestedString(payload, ['camera', 'id']) ??
+    getNestedString(payload, ['payload', 'cameraId']) ??
+    getNestedString(payload, ['payload', 'camera_id']) ??
+    getNestedString(payload, ['data', 'cameraId']) ??
+    getNestedString(payload, ['data', 'camera_id'])
+  );
+}
+
+function normalizeCameraEvent(rawData: string, cameraId: string) {
+  const parsed = parseIncomingEventMessage(rawData);
+  const eventCameraId = getEventCameraId(parsed);
+
+  if (eventCameraId && eventCameraId !== cameraId) {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    const rawText = String(parsed);
+
+    return {
+      id: `${Date.now()}-${Math.random()}`,
+      cameraId,
+      type: 'message',
+      title: 'Событие камеры',
+      description: rawText,
+      payload: parsed,
+      receivedAt: new Date().toISOString(),
+      raw: rawData,
+    } satisfies CameraEventItem;
+  }
+
+  const object = parsed as Record<string, unknown>;
+
+  const type =
+    getStringFromUnknown(object.type) ??
+    getStringFromUnknown(object.eventType) ??
+    getStringFromUnknown(object.event) ??
+    getStringFromUnknown(object.name) ??
+    'event';
+
+  const title =
+    getStringFromUnknown(object.title) ??
+    getStringFromUnknown(object.message) ??
+    getStringFromUnknown(object.label) ??
+    getEventTypeLabel(type);
+
+  const description =
+    getStringFromUnknown(object.description) ??
+    getStringFromUnknown(object.message) ??
+    getStringFromUnknown(object.text) ??
+    'Получено новое событие от камеры';
+
+  const timestamp =
+    getStringFromUnknown(object.timestamp) ??
+    getStringFromUnknown(object.createdAt) ??
+    getStringFromUnknown(object.time);
+
+  const severity =
+    getStringFromUnknown(object.severity) ??
+    getStringFromUnknown(object.level);
+
+  return {
+    id:
+      getStringFromUnknown(object.id) ??
+      `${Date.now()}-${Math.random()}`,
+    cameraId: eventCameraId ?? cameraId,
+    type,
+    title,
+    description,
+    payload: parsed,
+    receivedAt: new Date().toISOString(),
+    timestamp,
+    severity,
+    raw: rawData,
+  } satisfies CameraEventItem;
+}
+
+function getEventTypeLabel(type: string) {
+  const normalizedType = type.toLowerCase();
+
+  const labels: Record<string, string> = {
+    motion: 'Движение',
+    person: 'Человек',
+    vehicle: 'Транспорт',
+    car: 'Автомобиль',
+    object: 'Объект',
+    message: 'Сообщение',
+    event: 'Событие',
+    alarm: 'Тревога',
+  };
+
+  return labels[normalizedType] ?? type;
+}
+
+function createCameraEventsWsUrl(baseUrl: string | undefined, cameraId: string) {
+  if (!baseUrl?.trim()) {
+    return null;
+  }
+
+  let normalizedUrl = baseUrl.trim();
+
+  if (normalizedUrl.startsWith('http://')) {
+    normalizedUrl = `ws://${normalizedUrl.slice('http://'.length)}`;
+  }
+
+  if (normalizedUrl.startsWith('https://')) {
+    normalizedUrl = `wss://${normalizedUrl.slice('https://'.length)}`;
+  }
+
+  try {
+    const url = new URL(normalizedUrl);
+
+    url.searchParams.set('cameraId', cameraId);
+
+    return url.toString();
+  } catch {
+    const separator = normalizedUrl.includes('?') ? '&' : '?';
+
+    return `${normalizedUrl}${separator}cameraId=${encodeURIComponent(cameraId)}`;
+  }
+}
+
+function getConnectionStatusLabel(status: CameraEventsConnectionStatus) {
+  if (status === 'idle') return 'Ожидание';
+  if (status === 'connecting') return 'Подключение';
+  if (status === 'open') return 'Подключено';
+  if (status === 'closed') return 'Отключено';
+
+  return 'Ошибка';
+}
+
+function getConnectionStatusClassName(status: CameraEventsConnectionStatus) {
+  if (status === 'open') {
+    return 'bg-green-500/10 text-green-600 ring-green-500/20';
+  }
+
+  if (status === 'connecting') {
+    return 'bg-blue-500/10 text-blue-600 ring-blue-500/20';
+  }
+
+  if (status === 'error') {
+    return 'bg-red-500/10 text-red-600 ring-red-500/20';
+  }
+
+  return 'bg-zinc-500/10 text-zinc-500 ring-zinc-500/20';
 }
 
 function MapPinIcon() {
@@ -132,6 +362,23 @@ function EyeIcon() {
   );
 }
 
+function BoltIcon() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M13 2 4 14h7l-1 8 10-13h-7l0-7Z" />
+    </svg>
+  );
+}
+
 function InfoCard({
   icon,
   label,
@@ -158,13 +405,7 @@ function InfoCard({
   );
 }
 
-function StatCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[22px] border border-[var(--color-border)] bg-[var(--color-surface-solid)] p-4">
       <p className="font-inter text-xs font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
@@ -175,6 +416,222 @@ function StatCard({
         {value}
       </p>
     </div>
+  );
+}
+
+function CameraEventsPanel({ cameraId }: { cameraId: string }) {
+  const [connectionStatus, setConnectionStatus] =
+    useState<CameraEventsConnectionStatus>('idle');
+
+  const [events, setEvents] = useState<CameraEventItem[]>([]);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [reconnectKey, setReconnectKey] = useState(0);
+
+  const wsUrl = useMemo(() => {
+    return createCameraEventsWsUrl(CAMERA_EVENTS_WS_URL, cameraId);
+  }, [cameraId]);
+
+  useEffect(() => {
+    if (!wsUrl) {
+      setConnectionStatus('error');
+      setConnectionError(
+        'VITE_CAMERA_EVENTS_WS_URL не указан в .env файле',
+      );
+      return;
+    }
+
+    let socket: WebSocket | null = null;
+    let isClosedByEffect = false;
+
+    try {
+      setConnectionStatus('connecting');
+      setConnectionError(null);
+
+      socket = new WebSocket(wsUrl);
+
+      socket.addEventListener('open', () => {
+        if (isClosedByEffect) return;
+
+        setConnectionStatus('open');
+        setConnectionError(null);
+      });
+
+      socket.addEventListener('message', (event) => {
+        if (isClosedByEffect || typeof event.data !== 'string') {
+          return;
+        }
+
+        const normalizedEvent = normalizeCameraEvent(event.data, cameraId);
+
+        if (!normalizedEvent) {
+          return;
+        }
+
+        setEvents((prev) => [normalizedEvent, ...prev].slice(0, 40));
+      });
+
+      socket.addEventListener('close', () => {
+        if (isClosedByEffect) return;
+
+        setConnectionStatus('closed');
+      });
+
+      socket.addEventListener('error', () => {
+        if (isClosedByEffect) return;
+
+        setConnectionStatus('error');
+        setConnectionError('Не удалось подключиться к WebSocket событий');
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Ошибка создания WebSocket подключения';
+
+      setConnectionStatus('error');
+      setConnectionError(message);
+    }
+
+    return () => {
+      isClosedByEffect = true;
+
+      if (socket) {
+        socket.close();
+      }
+    };
+  }, [cameraId, wsUrl, reconnectKey]);
+
+  return (
+    <div className="rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
+      <div className="border-b border-[var(--color-border)] p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-inter text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+              Camera Events
+            </p>
+
+            <h2 className="mt-1 text-xl font-extrabold text-[var(--color-text-primary)]">
+              События камеры
+            </h2>
+          </div>
+
+          <span
+            className={[
+              'shrink-0 rounded-full px-3 py-1 font-inter text-xs font-bold ring-1',
+              getConnectionStatusClassName(connectionStatus),
+            ].join(' ')}
+          >
+            {getConnectionStatusLabel(connectionStatus)}
+          </span>
+        </div>
+
+        <div className="mt-4 rounded-[20px] bg-[var(--color-bg-soft)] p-4">
+          <p className="font-inter text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+            Endpoint
+          </p>
+
+          <p
+            title={wsUrl ?? CAMERA_EVENTS_WS_URL ?? ''}
+            className="mt-1 line-clamp-2 break-all font-inter text-xs font-semibold leading-5 text-[var(--color-text-secondary)]"
+          >
+            {wsUrl ?? 'Не указан'}
+          </p>
+        </div>
+
+        {connectionError && (
+          <div className="mt-4 rounded-[20px] border border-red-500/20 bg-red-500/10 px-4 py-3 font-inter text-xs font-semibold leading-5 text-red-600">
+            {connectionError}
+          </div>
+        )}
+
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setReconnectKey((prev) => prev + 1)}
+            className="h-10 flex-1 rounded-[16px] bg-[var(--color-primary)] px-4 font-inter text-xs font-extrabold text-[var(--color-secondary-text)] transition hover:scale-[1.01]"
+          >
+            Переподключиться
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setEvents([])}
+            className="h-10 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-4 font-inter text-xs font-bold text-[var(--color-text-primary)] transition hover:text-red-500"
+          >
+            Очистить
+          </button>
+        </div>
+      </div>
+
+      <div className="max-h-[560px] min-h-[360px] overflow-y-auto p-5">
+        {events.length === 0 ? (
+          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-[26px] border border-dashed border-[var(--color-border)] bg-[var(--color-bg-soft)] px-6 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-primary)]/15 text-[var(--color-primary)]">
+              <BoltIcon />
+            </div>
+
+            <h3 className="mt-4 text-lg font-extrabold text-[var(--color-text-primary)]">
+              Ждём события
+            </h3>
+
+            <p className="mt-2 font-inter text-sm leading-6 text-[var(--color-text-secondary)]">
+              Когда camera-events-service отправит данные по WebSocket, они
+              появятся здесь.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {events.map((event) => (
+              <CameraEventCard key={event.id} event={event} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CameraEventCard({ event }: { event: CameraEventItem }) {
+  return (
+    <article className="rounded-[24px] border border-[var(--color-border)] bg-[var(--color-bg-soft)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-[var(--color-primary)]/15 px-3 py-1 font-inter text-[10px] font-extrabold uppercase tracking-wide text-[var(--color-primary)]">
+              {getEventTypeLabel(event.type)}
+            </span>
+
+            {event.severity && (
+              <span className="rounded-full bg-red-500/10 px-3 py-1 font-inter text-[10px] font-extrabold uppercase tracking-wide text-red-600">
+                {event.severity}
+              </span>
+            )}
+          </div>
+
+          <h3 className="mt-3 line-clamp-2 text-base font-extrabold text-[var(--color-text-primary)]">
+            {event.title}
+          </h3>
+
+          <p className="mt-2 line-clamp-3 font-inter text-sm leading-6 text-[var(--color-text-secondary)]">
+            {event.description}
+          </p>
+        </div>
+
+        <p className="shrink-0 font-inter text-xs font-bold text-[var(--color-text-muted)]">
+          {formatTime(event.timestamp ?? event.receivedAt)}
+        </p>
+      </div>
+
+      <details className="mt-3">
+        <summary className="cursor-pointer font-inter text-xs font-bold text-[var(--color-primary)]">
+          JSON события
+        </summary>
+
+        <pre className="mt-3 max-h-60 overflow-auto rounded-[18px] bg-[#0F1318] p-4 text-xs leading-5 text-white">
+          {getJsonString(event.payload)}
+        </pre>
+      </details>
+    </article>
   );
 }
 
@@ -282,7 +739,7 @@ export function CameraViewPage() {
 
   return (
     <section className="min-h-screen px-4 py-24 md:px-8 md:py-28">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-[1600px]">
         <div className="mb-8">
           <div className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] shadow-sm backdrop-blur-xl">
             Просмотр камеры
@@ -316,7 +773,7 @@ export function CameraViewPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_390px]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_460px]">
           <div className="space-y-5">
             <CameraPlayer stream={stream} title={camera.title} />
 
@@ -334,7 +791,7 @@ export function CameraViewPage() {
               <StatCard
                 label="Угол обзора"
                 value={
-                  camera.coverage?.fovDeg
+                  typeof camera.coverage?.fovDeg === 'number'
                     ? `${camera.coverage.fovDeg}°`
                     : '—'
                 }
@@ -343,7 +800,7 @@ export function CameraViewPage() {
               <StatCard
                 label="Направление"
                 value={
-                  camera.coverage?.directionDeg
+                  typeof camera.coverage?.directionDeg === 'number'
                     ? `${camera.coverage.directionDeg}°`
                     : '—'
                 }
@@ -352,6 +809,8 @@ export function CameraViewPage() {
           </div>
 
           <aside className="space-y-4">
+            <CameraEventsPanel cameraId={camera.id} />
+
             <div className="rounded-[32px] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl shadow-[var(--color-shadow)] backdrop-blur-2xl">
               <h2 className="text-xl font-extrabold text-[var(--color-text-primary)]">
                 О камере

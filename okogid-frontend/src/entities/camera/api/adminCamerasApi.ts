@@ -271,3 +271,44 @@ export async function deleteAdminCamera(
 
   return response.json() as Promise<DeleteAdminCameraResponse>;
 }
+
+export type SetAdminCameraEventWsPayload = {
+  eventWsUrl: string;
+};
+
+export type AdminCameraEventWsResponse = {
+  cameraId: string;
+  intersectionId: string | null;
+  title: string;
+  slug: string;
+  eventWsUrl: string;
+};
+
+export async function setAdminCameraEventWs(
+  cameraId: string,
+  payload: SetAdminCameraEventWsPayload,
+  signal?: AbortSignal,
+): Promise<AdminCameraEventWsResponse> {
+  const response = await authFetch(
+    createApiUrl(
+      API_CONFIG.apiBaseUrl,
+      `/admin/cameras/${cameraId}/event-ws`,
+    ),
+    {
+      method: 'PATCH',
+      signal,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    const message = await getApiErrorMessage(response);
+    throw new Error(message);
+  }
+
+  return (await response.json()) as AdminCameraEventWsResponse;
+}
