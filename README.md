@@ -106,7 +106,6 @@ React Map UI
 ### Infrastructure
 
 - Docker
-- Docker Compose
 - Nginx / Traefik
 - Prometheus
 - Grafana
